@@ -196,8 +196,6 @@ void setup() {
   sendNTPpacket(timeServerIP);
   delay(500);
 #endif
-  
-  setMotor(300);
 }
 
 /*__________________________________________________________LOOP__________________________________________________________*/
@@ -369,20 +367,20 @@ void loop() {
           if (abs(speed) < 1.0) {
             if (!stallTime) {
               stallTime = currentMillis;
-            }
-            if (stallTime + stallTimeTreshold > currentMillis) {
+            } else if (stallTime + stallTimeTreshold > currentMillis) {
               stallTime = 0;
               programMode = STALL;
               motorPower = 0;
               digitalWrite(MOTOR_RELAY_PIN, LOW);
             }
+          } else {
+            stallTime = 0;
           }
         }
-      } else if (errCount > 10) {
+      } else if (errCount > 10) { // if sensor doesn't work fallback to voltage based control
         motorPower = programSpeed * 1023 / 24;
       }
       setMotor(motorPower);
-  
     }
     if (programMode == STALL) {
       if (abs(speed) > 5.0) {
