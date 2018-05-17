@@ -671,12 +671,12 @@ void loadConfiguration() {
 
   for (int n=0; n<5; n++) {
     config.programma[n].w = root["programma"][n]["w"] | (n+1)*10;
-    config.programma[n].x = root["programma"][n]["x"] | 10;
-    config.programma[n].y = root["programma"][n]["y"] | 10;
-    config.programma[n].z = root["programma"][n]["z"] | 6000;
-    config.programma[n].x2 = root["programma"][n]["x2"] | 10;
-    config.programma[n].y2 = root["programma"][n]["y2"] | 10;
-    config.programma[n].z2 = root["programma"][n]["z2"] | 6000;
+    config.programma[n].x = root["programma"][n]["x"] | 120;
+    config.programma[n].y = root["programma"][n]["y"] | 7200;
+    config.programma[n].z = root["programma"][n]["z"] | 5;
+    config.programma[n].x2 = root["programma"][n]["x2"] | 120;
+    config.programma[n].y2 = root["programma"][n]["y2"] | 7200;
+    config.programma[n].z2 = root["programma"][n]["z2"] | 5;
     config.programma[n].t = root["programma"][n]["t"] | 20;
   }
   
@@ -691,13 +691,6 @@ void loadConfiguration() {
 
 // Saves the configuration to a file
 void saveConfiguration() {
-  // Open file for writing
-  File file = SPIFFS.open("/config.json", "w");
-  if (!file) {
-    Serial.println("failed to open config file for writing");
-    return;
-  }
-
   // Allocate the memory pool on the stack
   // Don't forget to change the capacity to match your JSON document.
   // Use https://arduinojson.org/assistant/ to compute the capacity.
@@ -726,15 +719,20 @@ void saveConfiguration() {
     programma_0["t"] = config.programma[n].t;
   }
 
+  root.printTo(Serial);
+
+  // Open file for writing
+  File file = SPIFFS.open("/config.json", "w");
+  if (!file) {
+    Serial.println("failed to open config file for writing");
+    return;
+  }
   // Serialize JSON to file
   if (root.printTo(file) == 0) {
     Serial.println(F("Failed to write to file"));
   }
-
   // Close the file (File's destructor doesn't close the file)
   file.close();
-  
-  root.printTo(Serial);
 }
 
 /*__________________________________________________________SERVER_HANDLERS__________________________________________________________*/
