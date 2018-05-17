@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Composttoilet</title>
+        <link rel="icon" type="image/png" sizes="144x144" href="/favicon-144x144.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon.ico">
+    <link rel="manifest" href="/manifest.json">
+		<meta charset='utf-8'>
+    <meta name="theme-color" content="#00878f">
+    <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
+		
+		<style>
+			body {
+			    font-family: 'Roboto', sans-serif;
+			    font-size: 12pt;
+			    margin: 0;
+			    margin-top: 6px;
+			}
+
+			h1 {
+			    font-size: 1.5em;
+			    font-weight: normal;
+			    margin: 0px 0px 12px 0px;
+			}
+
+			button {
+			    font-size: 14pt;
+			    width: 2em;
+			}
+
+			center {
+			    padding: 1em;
+			    margin: auto;
+			    width: 90%;
+			    box-shadow: #777 2px 2px 5px;
+			    box-sizing: border-box;
+			}
+			
+			td {
+				text-align: center;
+        vertical-align: top;
+			}
+
+			#loading {
+				margin-bottom: 12px;
+			}
+
+			.num {
+				width: 3em;
+			}
+			
+			.value {
+				display: inline-block;
+				width: 3em;
+				text-align: right;
+			}
+			.label {
+				display: inline-block;
+				width: 12em;
+				text-align: right;
+			}
+			.unit {
+				display: inline-block;
+				width: 3em;
+				text-align: left;
+			}
+
+			@media only screen and (max-device-width: 700px) {
+			    center {
+				width: 100%;
+				height: 100vh;
+				overflow: auto;
+			    }
+			}
+	</style>
+</head>
+
+<body>
+    <center>
+        <h1>Composttoilet</h1>
+				<div id="status">
+					<h2>Status</h2>
+					<span class="label">Temperature: </span><span class="value" id="temperature">-</span><span class="unit">&deg;C</span><br/>
+					<span class="label">Rotation: </span><span class="value" id="rotation">-</span><span class="unit">&deg;</span><br/>
+					<span class="label">Speed: </span><span class="value" id="speed">-</span><span class="unit">m&deg;/s</span><br/>
+					<span class="label">Voltage: </span><span class="value" id="voltage">-</span><span class="unit">V</span><br/>
+					<span class="label">Weerstand: </span><span class="value" id="weerstand">-</span><span class="unit">V/(m&deg;/s)</span><br/>
+					<span class="label">Bril: </span><span class="value" id="bril">-</span><span class="unit">&nbsp;</span><br/>
+					<span class="label">Verwarming: </span><span class="value" id="verwarming">-</span><span class="unit">&nbsp;</span><br/>
+					<span class="label">Programmastaat: </span><span id="programstate">-</span><br/>
+					<span class="label">Status: </span><span id="statusline">-</span><br/>
+				</div>
+				<div id="control">
+					<h2>Control</h2>
+					Motorspanning: <input type="text" class="value" id="control_speed" value="12"/>V<br/>
+					<input type="button" id="control_links" value="linksom"/>
+					<input type="button" id="control_rechts" value="rechtsom"/>
+					<input type="button" id="control_programma" value="programma"/>
+				</div>
+        <div id="config">
+					<h2>Settings</h2>
+          <form id="config_form" method="post" style="margin: 0px auto 8px auto" >
+						Vakantiemodus na: <input type="text" class="num" name="vakantieTijd" id="vakantieTijd"/> uur.<br/>
+						Log interval: <input type="text" class="num" name="logInterval" id="logInterval"/> s.
+						<h4>Programma:</h4>
+						Bij weerstand &lt; <i>w</i>: Draai <i>y</i> seconden linksom met snelheid <i>z</i> - wacht <i>x</i> seconden<br/>
+						 - draai <i>y2</i> seconden rechtsom met snelheid <i>z2</i> - wacht <i>x2</i> seconden. Houdt temperatuur op <i>t</i>&deg;C).
+						<table>
+							<tr>
+								<td><i>w</i></td><td><i>1<br/>rechts</i></td><td><i>2<br/>pauze</i></td><td><i>3<br/>links</i></td><td><i>4<br/>pauze</i></td><td><i>t</i></td>
+							</tr>
+							<tr>
+								<td>1: &lt; <input type="text" class="num" name="w0_w" id="w0_w"/></td>
+                <td><input type="text" class="num" name="w0_x" id="w0_x"/>s<br/>
+                <input type="text" class="num" name="w0_z" id="w0_z"/>V</td>
+								<td><input type="text" class="num" name="w0_y" id="w0_y"/>s</td>
+                <td><input type="text" class="num" name="w0_x2" id="w0_x2"/>s<br/>
+                <input type="text" class="num" name="w0_z2" id="w0_z2"/>V</td>
+								<td><input type="text" class="num" name="w0_y2" id="w0_y2"/>s</td>
+								<td><input type="text" class="num" name="w0_t" id="w0_t"/>&deg;C</td>
+							</tr>
+							<tr>
+								<td>2: &lt; <input type="text" class="num" name="w1_w" id="w1_w"/></td>
+                <td><input type="text" class="num" name="w1_x" id="w1_x"/>s<br/>
+                <input type="text" class="num" name="w1_z" id="w1_z"/>V</td>
+								<td><input type="text" class="num" name="w1_y" id="w1_y"/>s</td>
+                <td><input type="text" class="num" name="w1_x2" id="w1_x2"/>s<br/>
+                <input type="text" class="num" name="w1_z2" id="w1_z2"/>V</td>
+								<td><input type="text" class="num" name="w1_y2" id="w1_y2"/>s</td>
+								<td><input type="text" class="num" name="w1_t" id="w1_t"/>&deg;C</td>
+							</tr>
+							<tr>
+								<td>3: &lt; <input type="text" class="num" name="w2_w" id="w2_w"/></td>
+                <td><input type="text" class="num" name="w2_x" id="w2_x"/>s<br/>
+                <input type="text" class="num" name="w2_z" id="w2_z"/>V</td>
+								<td><input type="text" class="num" name="w2_y" id="w2_y"/>s</td>
+                <td><input type="text" class="num" name="w2_x2" id="w2_x2"/>s<br/>
+                <input type="text" class="num" name="w2_z2" id="w2_z2"/>V</td>
+								<td><input type="text" class="num" name="w2_y2" id="w2_y2"/>s</td>
+								<td><input type="text" class="num" name="w2_t" id="w2_t"/>&deg;C</td>
+							</tr>
+							<tr>
+								<td>4: &lt; <input type="text" class="num" name="w3_w" id="w3_w"/></td>
+                <td><input type="text" class="num" name="w3_x" id="w3_x"/>s<br/>
+                <input type="text" class="num" name="w3_z" id="w3_z"/>V</td>
+								<td><input type="text" class="num" name="w3_y" id="w3_y"/>s</td>
+                <td><input type="text" class="num" name="w3_x2" id="w3_x2"/>s<br/>
+                <input type="text" class="num" name="w3_z2" id="w3_z2"/>V</td>
+								<td><input type="text" class="num" name="w3_y2" id="w3_y2"/>s</td>
+								<td><input type="text" class="num" name="w3_t" id="w3_t"/>&deg;C</td>
+							</tr>
+							<tr>
+								<td>5: vakantie<input style="display:none" type="text" class="num" name="w4_w" id="w4_w"/></td>
+                <td><input type="text" class="num" name="w4_x" id="w4_x"/>s<br/>
+                <input type="text" class="num" name="w4_z" id="w4_z"/>V</td>
+								<td><input type="text" class="num" name="w4_y" id="w4_y"/>s</td>
+                <td><input type="text" class="num" name="w4_x2" id="w4_x2"/>s<br/>
+                <input type="text" class="num" name="w4_z2" id="w4_z2"/>V</td>
+								<td><input type="text" class="num" name="w4_y2" id="w4_y2"/>s</td>
+								<td><input type="text" class="num" name="w4_t" id="w4_t"/>&deg;C</td>
+							</tr>
+						</table>
+						<h4>Wifi Settings:<h4>
+						SSID: <input type="text" name="ssid" id="ssid"><br/>
+            Password: <input type="password" name="password" id="password"><br/>
+            <input class="button" type="submit" value="Save" name="submit"/>
+          </form>
+        </div>
+    </center>
+
+		<script>
+      var connection;
+      var lastMessage;
+			function getJson(yourUrl){
+		    var Httpreq = new XMLHttpRequest(); // a new request
+		    Httpreq.open("GET",yourUrl,false);
+		    Httpreq.send(null);
+		    return JSON.parse(Httpreq.responseText);
+			}
+			window.onload = function() {
+				var config = getJson("/config.json");
+				document.getElementById("ssid").value = config.ssid;
+				document.getElementById("password").value = config.password;
+				document.getElementById("vakantieTijd").value = config.vakantieTijd;
+				document.getElementById("logInterval").value = config.logInterval;
+				for (var n = 0; n<5; n++) {
+					document.getElementById("w" + n + "_w").value = config.programma[n].w;
+					document.getElementById("w" + n + "_y").value = config.programma[n].y;
+					document.getElementById("w" + n + "_z").value = config.programma[n].z;
+					document.getElementById("w" + n + "_x").value = config.programma[n].x;
+					document.getElementById("w" + n + "_y2").value = config.programma[n].y2;
+					document.getElementById("w" + n + "_z2").value = config.programma[n].z2;
+					document.getElementById("w" + n + "_x2").value = config.programma[n].x2;
+					document.getElementById("w" + n + "_t").value = config.programma[n].t;
+				}
+        document.getElementById("config_form").addEventListener('change', 
+          function(e){e.target.style.backgroundColor = "pink"});
+        
+        connection = new WebSocket('ws://' + location.hostname + ':81/', ['arduino']);
+        connection.onopen = function () {
+          console.log('WebSocket connection opened');
+          connection.send('Connect ' + new Date());
+        };
+        connection.onerror = function (error) {
+          console.log('WebSocket Error ', error);
+        };
+        var statusMap = {
+          "t":"temperature",
+          "r":"rotation",
+          "s":"speed",
+          "u":"voltage",
+          "w":"weerstand",
+          "b":"bril",
+          "v":"verwarming",
+					"p":"programstate",
+          "x":"statusline",
+        };
+        connection.onmessage = function (e) {
+          lastMessage = new Date().getTime();
+          var values = e.data.split(",");
+          for (n in values) {
+            var v = values[n].split(":");
+            if (statusMap[v[0]]) {
+              document.getElementById(statusMap[v[0]]).innerHTML = v[1];
+            } else {
+              console.log('Unknown message: ', values[n]);
+            }
+          }
+					return false;
+        };
+        connection.onclose = function (e) {
+          console.log('WebSocket connection closed');
+          console.log(e);
+          document.getElementById("statusline").innerHTML = 'WebSocket connection closed';
+        };
+				var cl = document.getElementById("control_links");
+				var cr = document.getElementById("control_rechts");
+				var cp = document.getElementById("control_programma");
+				cl.onmousedown = cl.ontouchstart = function(e) {
+					connection.send("M-" + document.getElementById("control_speed").value);
+					//e.preventDefault();
+				}
+				cr.onmousedown = cr.ontouchstart = function(e) {
+					connection.send("M" + document.getElementById("control_speed").value);
+					//e.preventDefault();
+				}
+				cl.onmouseup = cl.ontouchend = cr.onmouseup = cr.ontouchend = function(e) {
+					connection.send("M0");
+					//e.preventDefault();
+				}
+				cp.onmouseup = cp.ontouchend = function(e) {
+					connection.send("MP");
+					//e.preventDefault();
+				}
+			}
+			setInterval(function(){
+        if ((new Date().getTime() - lastMessage) > 1000) {
+          document.getElementById("status").style.backgroundColor = "grey";
+        } else {
+          document.getElementById("status").style.backgroundColor = "";
+        }
+      }, 500);
+		</script>
+
+</body>
+
+</html>
