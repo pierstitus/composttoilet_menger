@@ -624,6 +624,10 @@ void startServer() { // Start a HTTP server with a file read handler and an uplo
     server.send(200, "text/plain", "");
   }, handleFileUpload);                       // go to 'handleFileUpload'
   
+  server.on("/version", []() {
+    server.send(200, "text/plain", "\"" SRC_REVISION "\"");
+  });
+  
   server.on("/", handleConfig);
   // server.on("/", HTTP_POST, []() {
   //   server.send(200, "text/plain", "");

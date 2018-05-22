@@ -79,6 +79,7 @@
 <body>
     <center>
         <h1>Composttoilet</h1>
+				<div style="font-size: 80%; margin-top: -10pt;">version: <span id="version"></span></div>
 				<div id="status">
 					<h2>Status</h2>
 					<span class="label">Temperature: </span><span class="value" id="temperature">-</span><span class="unit">&deg;C</span><br/>
@@ -179,6 +180,8 @@
 		    return JSON.parse(Httpreq.responseText);
 			}
 			window.onload = function() {
+        var version = getJson("/version");
+        document.getElementById("version").innerHTML = version;
 				var config = getJson("/config.json");
 				document.getElementById("ssid").value = config.ssid;
 				document.getElementById("password").value = config.password;
