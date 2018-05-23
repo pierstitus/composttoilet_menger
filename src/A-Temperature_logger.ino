@@ -315,6 +315,7 @@ void loop() {
       if (programState == 0) {
         // Turn right with speed z for x seconds
         programState = 1;
+        stallTime = 0;
         programStartTime = currentMillis;
         digitalWrite(MOTOR_RELAY_PIN, HIGH);
         programSpeed = programDirection * p->z;
@@ -340,6 +341,7 @@ void loop() {
       } else if (programState == 2 && (currentMillis - programStartTime) > 1000 * p->y) {
         // Turn left
         programState = 3;
+        stallTime = 0;
         programStartTime = currentMillis;
         digitalWrite(MOTOR_RELAY_PIN, HIGH);
         programSpeed = programDirection * -p->z2;
@@ -368,11 +370,10 @@ void loop() {
           if (abs(speed) < 1.0) {
             if (!stallTime) {
               stallTime = currentMillis;
-            } else if (stallTime + stallTimeTreshold > currentMillis) {
-              stallTime = 0;
+            } else if (currentMillis - stallTime > stallTimeTreshold) {
               programMode = STALL;
               motorPower = 0;
-              digitalWrite(MOTOR_RELAY_PIN, LOW);
+              //digitalWrite(MOTOR_RELAY_PIN, LOW);
             }
           } else {
             stallTime = 0;
@@ -386,6 +387,10 @@ void loop() {
     if (programMode == STALL) {
       if (abs(speed) > 5.0) {
         programMode = MANUAL;
+      } else if (currentMillis - stallTime > 2 * stallTimeTreshold) {
+        programMode = PROGRAM;
+        programDirection = -programDirection;
+        programSpeed = -programSpeed;
       }
     }
     if (programMode == MANUAL) {
@@ -417,8 +422,8 @@ void loop() {
       } else {
         programMode = PROGRAM;
         currentProgram = 0;
+        if (programState < 3) {programDirection = -programDirection;}
         programState = 0;
-        programDirection = -programDirection;
       }
       lastLogTime = 0; // 
 #ifdef USE_WEBSOCKETS
@@ -880,8 +885,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         if (payload[1] == 'P') {
           programMode = PROGRAM;
           currentProgram = 0;
+          if (programState < 3) {programDirection = -programDirection;}
           programState = 0;
-          programDirection = -programDirection;
         } else if (payload[1] == '-' || (payload[1] >= '0' && payload[1] <= '9')) {
           int s = String((char*)&payload[1]).toInt();
           Serial.println(s);
