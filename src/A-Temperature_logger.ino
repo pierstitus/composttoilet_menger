@@ -212,8 +212,9 @@ const unsigned long intervalRotation = 100;   // rotation measurement interval
 unsigned long prevRotation = 0;
 unsigned long lastRotation = 0;
 
-float speedControlP = 3.0; // 1023 = 24V, 360°/4 = 100°/s
+float speedControlP = 2.0; // 1023 = 24V, 360°/4 = 100°/s
 int programSpeed = 0;
+int programDirection = 1;
 int motorPower = 0;
 float weerstand;
 float weerstandAvg = 0.0;
@@ -277,10 +278,10 @@ void loop() {
     int32_t x, y, z, mag;//, azimuth;
     float azimuth; //is supporting float too
     int err = qmc.read(&x, &y, &z, &azimuth);
-    Serial.printf("x: %d, y: %d, z: %d\r\n", x, y, z);
+    //Serial.printf("x: %d, y: %d, z: %d\r\n", x, y, z);
     if (err) {
       errCount++;
-      Serial.println("rotation sensor error " + String(err));
+      //Serial.println("rotation sensor error " + String(err));
       webSocket.broadcastTXT("x:rotation sensor error " + String(err) + " (" + String(errCount) + "x)");
       
     } else { 
@@ -302,29 +303,50 @@ void loop() {
       lastRotation = currentMillis;
     }
     if (programMode == PROGRAM) {
+      Programma* p = &config.programma[currentProgram];
       if (programState == 1) {
         weerstandAvg += weerstand;
         weerstandCount++;
       }
-      Programma* p = &config.programma[currentProgram];
-      if ((currentMillis - programStartTime) > 1000 * (p->x + p->y + p->x2 + p->y2)) {
+      if (programState == 4 && (currentMillis - programStartTime) > 1000 * p->y2) {
+        // Restart program
         programState = 0;
       }
       if (programState == 0) {
+        // Turn right with speed z for x seconds
+        programState = 1;
         programStartTime = currentMillis;
+        digitalWrite(MOTOR_RELAY_PIN, HIGH);
+        programSpeed = programDirection * p->z;
+        weerstandAvg = 0.0;
+        weerstandCount = 0;
+      } else if (programState == 1 && (currentMillis - programStartTime) > 1000 * p->x) {
+        // Pause
+        programState = 2;
+        programStartTime = currentMillis;
+        digitalWrite(MOTOR_RELAY_PIN, LOW);
+        motorPower = 0;
+        programSpeed = 0;
+        if (weerstandCount) {weerstandAvg /= weerstandCount;}
         
         // for (int n=0; n<5; n++) {
-        //   if (weerstand < config.programma[n].w) {
+        //   if (weerstandAvg < config.programma[n].w) {
         //     programma = n;
         //     motorPower = config.programma[n].x;
         //     setMotor('R', motorPower);
         //     break;
         //   }
         // }
-      }
-      if (programState < 4 && (currentMillis - programStartTime) > 1000 * (p->x + p->y + p->x2)) {
+      } else if (programState == 2 && (currentMillis - programStartTime) > 1000 * p->y) {
+        // Turn left
+        programState = 3;
+        programStartTime = currentMillis;
+        digitalWrite(MOTOR_RELAY_PIN, HIGH);
+        programSpeed = programDirection * -p->z2;
+      } else if (programState == 3 && (currentMillis - programStartTime) > 1000 * p->x2) {
         // Pause
         programState = 4;
+        programStartTime = currentMillis;
         digitalWrite(MOTOR_RELAY_PIN, LOW);
         motorPower = 0;
         programSpeed = 0;
@@ -333,27 +355,6 @@ void loop() {
           //programMode = VAKANTIE;
           currentProgram = 4;
         }
-      } else if (programState < 3 && (currentMillis - programStartTime) > 1000 * (p->x + p->y)) {
-        // Turn left
-        programState = 3;
-        digitalWrite(MOTOR_RELAY_PIN, HIGH);
-        programSpeed = -p->z2;
-        //motorPower = (1023/24) * programSpeed;
-      } else if (programState < 2 && (currentMillis - programStartTime) > 1000 * (p->x)) {
-        // Pause
-        programState = 2;
-        digitalWrite(MOTOR_RELAY_PIN, LOW);
-        motorPower = 0;
-        programSpeed = 0;
-        if (weerstandCount) {weerstandAvg /= weerstandCount;}
-      } else if (programState < 1) {
-        // Turn right with speed z for x seconds
-        programState = 1;
-        digitalWrite(MOTOR_RELAY_PIN, HIGH);
-        programSpeed = p->z;
-        //motorPower = (1023/24) * programSpeed;
-        weerstandAvg = 0.0;
-        weerstandCount = 0;
       }
       
       // Motor speed feedback loop
@@ -417,6 +418,7 @@ void loop() {
         programMode = PROGRAM;
         currentProgram = 0;
         programState = 0;
+        programDirection = -programDirection;
       }
       lastLogTime = 0; // 
 #ifdef USE_WEBSOCKETS
@@ -689,7 +691,7 @@ void loadConfiguration() {
   
   if (!root.success()) {
     Serial.println(F("Failed to read file, using default configuration"));
-    saveConfiguration();
+    //saveConfiguration(); // TODO: seems to cause a crash
   }
 }
 
@@ -877,7 +879,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       if (payload[0] == 'M' && length >= 2) {            // motor control
         if (payload[1] == 'P') {
           programMode = PROGRAM;
+          currentProgram = 0;
           programState = 0;
+          programDirection = -programDirection;
         } else if (payload[1] == '-' || (payload[1] >= '0' && payload[1] <= '9')) {
           int s = String((char*)&payload[1]).toInt();
           Serial.println(s);
