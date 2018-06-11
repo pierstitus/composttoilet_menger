@@ -35,7 +35,7 @@
 // Wemos D1 R2 pinout
 // TX 	TXD 	TXD
 // RX 	RXD 	RXD
-// A0 	Analog input 	A0
+// A0 	Analog input (0-3.2V, with voltage divider) 	A0
 // D0 	I/O 	GPIO16
 // D1 	I/O, SCL 	GPIO5
 // D2 	I/O, SDA 	GPIO4
@@ -209,6 +209,7 @@ unsigned long lastNTPResponse = millis();
 
 int speed;
 int speedMin, speedMax;
+float motorCurrent = 0;
 float rotation;
 const unsigned long intervalRotation = 100;   // rotation measurement interval
 unsigned long prevRotation = 0;
@@ -281,6 +282,13 @@ void loop() {
 
   // Measure rotation
   if (currentMillis - prevRotation > intervalRotation) {
+    float adc = 0;
+    for (int n=0; n<3; n++) {
+      adc += analogRead(A0);
+    }
+    adc /= 3;
+    motorCurrent = 0.8*motorCurrent + 0.2*((831 - adc) * 32); //0.9*motorCurrent + 0.1*
+
     int32_t x, y, z, mag;//, azimuth;
     float azimuth; //is supporting float too
     int err = qmc.read(&x, &y, &z, &azimuth);
@@ -412,7 +420,7 @@ void loop() {
       p = p + " " + String(currentProgram+1) + "-" + String(programState);
     }
     webSocket.broadcastTXT("r:" + String(rotation,1) + ",s:" + String(speed)
-                           + ",w:" + String(weerstand) + ",u:" + String((24.0/1023.0) * motorPower,1)
+                           + ",w:" + String(motorCurrent/1000,1) + ",u:" + String((24.0/1023.0) * motorPower,1)
                            + ",v:" + String(heater) + ",p:" + p);
 #endif
     
