@@ -751,7 +751,7 @@ void saveConfiguration() {
   root.printTo(Serial);
 
   // Open file for writing
-  File file = SPIFFS.open("/config.json", "w");
+  File file = SPIFFS.open("/config-tmp.json", "w");
   if (!file) {
     Serial.println("failed to open config file for writing");
     return;
@@ -762,6 +762,10 @@ void saveConfiguration() {
   }
   // Close the file (File's destructor doesn't close the file)
   file.close();
+  SPIFFS.remove("/config-2.json");
+  SPIFFS.rename("/config-1.json", "/config-2.json");
+  SPIFFS.rename("/config.json", "/config-1.json");
+  SPIFFS.rename("/config-tmp.json", "/config.json");
 }
 
 /*__________________________________________________________SERVER_HANDLERS__________________________________________________________*/
