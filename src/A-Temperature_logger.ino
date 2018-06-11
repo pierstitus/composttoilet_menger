@@ -125,8 +125,8 @@ ProgramMode programMode = PROGRAM;
 #ifdef USE_NTP
 WiFiUDP UDP;                   // Create an instance of the WiFiUDP class to send and receive UDP messages
 
-IPAddress timeServerIP;        // The time.nist.gov NTP server's IP address
-const char* ntpServerName = "time.nist.gov";
+IPAddress timeServerIP;        // The NTP server's IP address
+const char* ntpServerName = "pool.ntp.org";
 
 const int NTP_PACKET_SIZE = 48;          // NTP time stamp is in the first 48 bytes of the message
 
@@ -187,14 +187,16 @@ void setup() {
 #ifdef USE_NTP
   startUDP();                  // Start listening for UDP messages to port 123
 
-  if(WiFi.hostByName(ntpServerName, timeServerIP)){ // Get the IP address of the NTP server
+  if (WiFi.hostByName(ntpServerName, timeServerIP)) { // Get the IP address of the NTP server
     // timeUNIX = 1;
   }
   Serial.print("Time server IP:\t");
   Serial.println(timeServerIP);
-
-  sendNTPpacket(timeServerIP);
-  delay(500);
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    sendNTPpacket(timeServerIP);
+    delay(500);
+  }
 #endif
 }
 
@@ -256,21 +258,24 @@ void loop() {
   unsigned long currentMillis = millis();
 
 #ifdef USE_NTP
-  if (currentMillis - prevNTP > intervalNTP) { // Request the time from the time server every hour
-    prevNTP = currentMillis;
-    sendNTPpacket(timeServerIP);
-  }
+  if (WiFi.status() == WL_CONNECTED) {
+    if (currentMillis - prevNTP > intervalNTP) { // Request the time from the time server every hour
+      prevNTP = currentMillis;
+      WiFi.hostByName(ntpServerName, timeServerIP);
+      sendNTPpacket(timeServerIP);
+    }
 
-  uint32_t time = getTime();                   // Check if the time server has responded, if so, get the UNIX time
-  if (time) {
-    timeUNIX = time;
-    Serial.print("NTP response:\t");
-    Serial.println(timeUNIX);
-    lastNTPResponse = millis();
-  } else if ((millis() - lastNTPResponse) > 24UL * ONE_HOUR) {
-    Serial.println("More than 24 hours since last NTP response. Rebooting.");
-    Serial.flush();
-    ESP.reset();
+    uint32_t time = getTime();                   // Check if the time server has responded, if so, get the UNIX time
+    if (time) {
+      timeUNIX = time;
+      Serial.print("NTP response:\t");
+      Serial.println(timeUNIX);
+      lastNTPResponse = millis();
+    } else if ((millis() - lastNTPResponse) > 24UL * ONE_HOUR) {
+      Serial.println("More than 24 hours since last NTP response. Rebooting.");
+      Serial.flush();
+      ESP.reset();
+    }
   }
 #endif
 
@@ -480,7 +485,7 @@ void loop() {
     if (timeUNIX != 0) {
       uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
       // The actual time is the last NTP time plus the time that has elapsed since the last NTP response
-      Serial.printf("Appending temperature to file: %lu,", actualTime);
+      Serial.printf("Appending data to log.csv: %lu,", actualTime);
       Serial.println(temp);
       File tempLog = SPIFFS.open("/log.csv", "a"); // Write the time and the temperature to the csv file
       if (tempLog.size() > 200*1024) {
@@ -498,9 +503,10 @@ void loop() {
         tempLog.println(temp, 1);
       }
       tempLog.close();
-    } else {                                    // If we didn't receive an NTP response yet, send another request
+    } else if (WiFi.status() == WL_CONNECTED) {                                    // If we didn't receive an NTP response yet, send another request
+      WiFi.hostByName(ntpServerName, timeServerIP);
       sendNTPpacket(timeServerIP);
-      delay(500);
+      //delay(500);
     }
 #endif
 #ifdef USE_EXT_LOG
@@ -580,11 +586,13 @@ void startWiFi() { // Try to connect to some given access points. Then wait for 
   }
   
   Serial.println("\r\n");
-  Serial.print("Connected to ");
-  Serial.println(WiFi.SSID());             // Tell us what network we're connected to
-  Serial.print("IP address:\t");
-  Serial.print(WiFi.localIP());            // Send the IP address of the ESP8266 to the computer
-  Serial.println("\r\n");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("Connected to ");
+    Serial.println(WiFi.SSID());             // Tell us what network we're connected to
+    Serial.print("IP address:\t");
+    Serial.print(WiFi.localIP());            // Send the IP address of the ESP8266 to the computer
+    Serial.println("\r\n");
+  }
 }
 
 #ifdef USE_NTP
