@@ -3,7 +3,7 @@
 #include <ESP8266WiFi.h>
 //#include <ESP8266WiFiMulti.h>
 
-//#define USE_NTP  // Get current time from NTP server
+#define USE_NTP  // Get current time from NTP server
 //#define USE_OTA
 #define USE_WEBSOCKETS
 //#define USE_EXT_LOG
@@ -473,7 +473,9 @@ void loop() {
       digitalWrite(HEATER_RELAY_PIN, 0);
       heaterAvg += currentMillis - heaterStart;
     }
-    
+  }
+
+  if (currentMillis - lastLogTime > 1000 * config.logInterval) {
 #ifdef USE_NTP
     if (timeUNIX != 0) {
       uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
@@ -481,20 +483,27 @@ void loop() {
       Serial.printf("Appending temperature to file: %lu,", actualTime);
       Serial.println(temp);
       File tempLog = SPIFFS.open("/log.csv", "a"); // Write the time and the temperature to the csv file
-      tempLog.print(actualTime);
-      tempLog.print(',');
-      tempLog.println(temp);
+      if (tempLog.size() > 200*1024) {
+        tempLog.close();
+        SPIFFS.remove("/log-1.csv");
+        //SPIFFS.rename("/log-1.csv", "/log-2.csv");
+        SPIFFS.rename("/log.csv", "/log-1.csv");
+        tempLog = SPIFFS.open("/log.csv", "a");
+      }
+      FSInfo fs_info;
+      SPIFFS.info(fs_info);
+      if (tempLog.size() <= 200*1024 && fs_info.totalBytes - fs_info.usedBytes > 100*1024) { 
+        tempLog.print(actualTime);
+        tempLog.print(',');
+        tempLog.println(temp, 1);
+      }
       tempLog.close();
     } else {                                    // If we didn't receive an NTP response yet, send another request
       sendNTPpacket(timeServerIP);
       delay(500);
     }
 #endif
-  }
-  
-
 #ifdef USE_EXT_LOG
-  if (currentMillis - lastLogTime > 1000 * config.logInterval) {
     Serial.print("Sending data to ");
     Serial.println(logHost);
     unsigned long tmp = millis();
@@ -525,14 +534,14 @@ void loop() {
       Serial.println("Connection failed!");
     }
     Serial.println(millis() - tmp);
-    lastLogTime = currentMillis;
-  }
-  Read all the lines of the reply from server and print them to Serial
-  while (client.available()) { // client.connected() && 
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
-  }
+    // Read all the lines of the reply from server and print them to Serial
+    while (client.available()) { // client.connected() && 
+      String line = client.readStringUntil('\r');
+      Serial.print(line);
+    }
 #endif
+  lastLogTime = currentMillis;
+}
   
   // LED blinker
   if (currentMillis - prevLed > intervalLed) {
