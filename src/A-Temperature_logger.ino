@@ -231,7 +231,7 @@ const unsigned long intervalTemp = 1000;   // temperature measurement interval
 unsigned long prevTemp = 0;
 bool tmpRequested = false;
 const unsigned long DS_delay = 750;         // Reading the temperature from the DS18x20 can take up to 750ms
-const float maxTempError = 1.0;
+const float maxTempError = 0.1;
 int heater = 0;
 unsigned long heaterStart = 0;
 float heaterAvg = 0.0;
@@ -250,6 +250,7 @@ unsigned long prevLed = 0;
 uint32_t timeUNIX = 0;                      // The most recent timestamp received from the time server
 
 int errCount = 0;
+int errCountTemp = 0;
 
 void loop() {
   unsigned long currentMillis = millis();
@@ -282,8 +283,9 @@ void loop() {
     if (err) {
       errCount++;
       //Serial.println("rotation sensor error " + String(err));
-      webSocket.broadcastTXT("x:rotation sensor error " + String(err) + " (" + String(errCount) + "x)");
-      
+      if (!(errCount%10)) {
+        webSocket.broadcastTXT("x:rotation sensor error " + String(err) + " (" + String(errCount) + "x)");
+      }
     } else { 
       errCount = 0;
       //azimuth = qmc.azimuth(&y,&x);//you can get custom azimuth
@@ -447,8 +449,18 @@ void loop() {
   }
   if (currentMillis - prevTemp > DS_delay && tmpRequested) { // 750 ms after requesting the temperature
     tmpRequested = false;
-    float temp = tempSensors.getTempCByIndex(0); // Get the temperature from the sensor
-    temp = round(temp * 10.0) / 10.0; // round temperature to 1 digits
+    float tmp = tempSensors.getTempCByIndex(0); // Get the temperature from the sensor
+    if (tmp < -120) {
+      //Temperature sensor error
+      errCountTemp++;
+      webSocket.broadcastTXT("x:temperature sensor error " + String(tmp,0) + " (" + String(errCountTemp) + "x)");
+    } else {
+      errCountTemp = 0;
+      temp = round(tmp * 10.0) / 10.0; // round temperature to 1 digits
+  #ifdef USE_WEBSOCKETS
+      webSocket.broadcastTXT("t:" + String(temp,1));
+  #endif
+    }
     
     if (!heater && temp < config.programma[currentProgram].t - maxTempError) {
       // turn heater on
@@ -462,9 +474,6 @@ void loop() {
       heaterAvg += currentMillis - heaterStart;
     }
     
-#ifdef USE_WEBSOCKETS
-    webSocket.broadcastTXT("t:" + String(temp,1));
-#endif
 #ifdef USE_NTP
     if (timeUNIX != 0) {
       uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
