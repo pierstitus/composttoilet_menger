@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>ESP8266 Temperature Logger</title>
+    <title>Composttoilet grafiek</title>
     <link href='https://fonts.googleapis.com/css?family=Roboto:300' rel='stylesheet' type='text/css'>
     <link rel="icon" type="image/png" sizes="144x144" href="/favicon-144x144.png">
     <link rel="icon" type="image/png" sizes="96x96" href="/favicon.ico">
@@ -62,7 +62,7 @@
 
 <body>
     <center>
-        <h1>ESP8266 Temperature Logger</h1>
+        <h1>Composttoilet grafiek</h1>
 		<div id="chart_div"></div>
 		<div id="loading">Loading ...</div>
         <div id="dateselect" style="visibility: hidden;">
@@ -74,63 +74,9 @@
             <button id="reset" style="width: 4.4em;">Reset</button><br>
             <button id="refresh" style="width: 4.4em;">Refresh</button>
         </div>
-        <div id="config">
-					<h3>Settings</h3>
-          <form id="config_form" method="post" style="margin: 0px auto 8px auto" >
-						<h4>Programma:<h4>
-						
-						Bij weerstand &lt; w: Draai y minuten linksom met snelheid z - wacht x minuten<br/> - draai y2 minuten rechtsom met snelheid z2 - wacht x2 minuten
-						<table>
-							<tr><td>w</td><td>y</td><td>z</td><td>x</td><td>y2</td><td>z2</td><td>x2</td></tr>
-							<tr>
-								<td>&lt; <input type="text" class="num" name="w0_w" id="w0_w"/></td>
-								<td><input type="text" class="num" name="w0_y" id="w0_y"/></td>
-								<td><input type="text" class="num" name="w0_z" id="w0_z"/></td>
-								<td><input type="text" class="num" name="w0_x" id="w0_x"/></td>
-								<td><input type="text" class="num" name="w0_y2" id="w0_y2"/></td>
-								<td><input type="text" class="num" name="w0_z2" id="w0_z2"/></td>
-								<td><input type="text" class="num" name="w0_x2" id="w0_x2"/></td>
-							</tr>
-							<tr>
-								<td>&lt; <input type="text" class="num" name="w1_w" id="w1_w"/></td>
-								<td><input type="text" class="num" name="w1_y" id="w1_y"/></td>
-								<td><input type="text" class="num" name="w1_z" id="w1_z"/></td>
-								<td><input type="text" class="num" name="w1_x" id="w1_x"/></td>
-								<td><input type="text" class="num" name="w1_y2" id="w1_y2"/></td>
-								<td><input type="text" class="num" name="w1_z2" id="w1_z2"/></td>
-								<td><input type="text" class="num" name="w1_x2" id="w1_x2"/></td>
-							</tr>
-							<tr>
-								<td>&lt; <input type="text" class="num" name="w2_w" id="w2_w"/></td>
-								<td><input type="text" class="num" name="w2_y" id="w2_y"/></td>
-								<td><input type="text" class="num" name="w2_z" id="w2_z"/></td>
-								<td><input type="text" class="num" name="w2_x" id="w2_x"/></td>
-								<td><input type="text" class="num" name="w2_y2" id="w2_y2"/></td>
-								<td><input type="text" class="num" name="w2_z2" id="w2_z2"/></td>
-								<td><input type="text" class="num" name="w2_x2" id="w2_x2"/></td>
-							</tr>
-						</table>
-						<h4>Wifi Settings:<h4>
-						SSID: <input type="text" name="ssid" id="ssid"><br/>
-            Password: <input type="text" name="password" id="password"><br/>
-            <input class="button" type="submit" value="Save" name="submit"/>
-          </form>
-        </div>
     </center>
 
     <script src="temperatureGraph.js"></script>
-		<script>
-			function getJson(yourUrl){
-		    var Httpreq = new XMLHttpRequest(); // a new request
-		    Httpreq.open("GET",yourUrl,false);
-		    Httpreq.send(null);
-		    return JSON.parse(Httpreq.responseText);
-			}
-			var config = getJson("/config.json");
-			document.getElementById("ssid").value = config.ssid;
-			document.getElementById("password").value = config.password;
-			
-		</script>
 
 </body>
 

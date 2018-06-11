@@ -82,11 +82,12 @@
 				<div style="font-size: 80%; margin-top: -10pt;">version: <span id="version"></span></div>
 				<div id="status">
 					<h2>Status</h2>
+          <a href="/graph.html">Open grafiek</a><br/>
 					<span class="label">Temperature: </span><span class="value" id="temperature">-</span><span class="unit">&deg;C</span><br/>
 					<span class="label">Rotation: </span><span class="value" id="rotation">-</span><span class="unit">&deg;</span><br/>
 					<span class="label">Speed: </span><span class="value" id="speed">-</span><span class="unit">m&deg;/s</span><br/>
 					<span class="label">Voltage: </span><span class="value" id="voltage">-</span><span class="unit">V</span><br/>
-					<span class="label">Weerstand: </span><span class="value" id="weerstand">-</span><span class="unit">V/(m&deg;/s)</span><br/>
+					<span class="label">Weerstand: </span><span class="value" id="weerstand">-</span><span class="unit"></span><br/>
 					<span class="label">Bril: </span><span class="value" id="bril">-</span><span class="unit">&nbsp;</span><br/>
 					<span class="label">Verwarming: </span><span class="value" id="verwarming">-</span><span class="unit">&nbsp;</span><br/>
 					<span class="label">Programmastaat: </span><span id="programstate">-</span><br/>
@@ -226,7 +227,9 @@
             var v = values[n].split(":");
             if (statusMap[v[0]]) {
               document.getElementById(statusMap[v[0]]).innerHTML = v[1];
-            } else {
+            } else if (v[0] == "c") {
+							console.log(v[1]);
+					  } else {
               console.log('Unknown message: ', values[n]);
             }
           }

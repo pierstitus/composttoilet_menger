@@ -38,14 +38,17 @@ viewportWidthTime = 1 day * 2^zoomLevel = viewportEndTime - viewportStartTime
 
 function loadCSV() {
     var xmlhttp = new XMLHttpRequest();
+    dataArray = [];
     xmlhttp.onreadystatechange = function() {
         if (this.readyState == 4 && this.status == 200) {
-            dataArray = parseCSV(this.responseText);
+            dataArray = dataArray.concat(parseCSV(this.responseText));
             google.charts.load('current', { 'packages': ['line', 'corechart'] });
             google.charts.setOnLoadCallback(updateViewport);
         }
     };
-    xmlhttp.open("GET", "temp.csv", true);
+    xmlhttp.open("GET", "log-1.csv", true);
+    xmlhttp.send();
+    xmlhttp.open("GET", "log.csv", true);
     xmlhttp.send();
     var loadingdiv = document.getElementById("loading");
     loadingdiv.style.visibility = "visible";
@@ -167,4 +170,3 @@ function getViewportWidthTime() {
     return defaultZoomTime*(2**zoomLevel); // exponential relation between zoom level and zoom time span
                                            // every time you zoom, you double or halve the time scale
 }
-
