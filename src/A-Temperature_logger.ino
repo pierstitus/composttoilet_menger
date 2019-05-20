@@ -244,6 +244,7 @@ unsigned long lastBrilChange = 0;
 int programTemperature = 0;
 
 unsigned long lastLogTime = 0;
+int logNow = 0;
 
 int ledPattern = 0b00001111;
 int ledStep = 0;
@@ -488,7 +489,7 @@ void loop() {
     }
   }
 
-  if (currentMillis - lastLogTime > 1000 * config.logInterval) {
+  if (logNow || currentMillis - lastLogTime > 1000 * config.logInterval) {
 #ifdef USE_NTP
     if (timeUNIX != 0) {
       uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
@@ -555,6 +556,7 @@ void loop() {
     }
 #endif
   lastLogTime = currentMillis;
+  logNow = 0;
 }
   
   // LED blinker
