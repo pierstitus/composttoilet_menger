@@ -96,22 +96,22 @@ const char *logHost = LOGHOST;
 // 0b01001001
 
 struct Programma {
-  int w;
-  int y;
-  int z;
-  int x;
-  int y2;
-  int z2;
-  int x2;
-  int t;
+  int w;              // bij weerstand w
+  unsigned int y;     // y seconden linksom draaien
+  int z;              // met snelheid z
+  unsigned int x;     // x seconden wachten
+  unsigned int y2;    // y2 seconden rechtsom draaien
+  int z2;             // met snelheid z2
+  unsigned int x2;    // x2 seconden wachten
+  int t;              // houdt temperatuur minimaal t graden
 };
 
 // Configuration that we'll store on disk
 struct Config {
   char ssid[32];
   char password[32];
-  int vakantieTijd;
-  int logInterval;
+  unsigned int vakantieTijd;
+  unsigned int logInterval;
   Programma programma[5];
 };
 
@@ -248,7 +248,7 @@ int logNow = 0;
 
 int ledPattern = 0b00001111;
 int ledStep = 0;
-int intervalLed = 250;
+unsigned int intervalLed = 250;
 unsigned long prevLed = 0;
 
 uint32_t timeUNIX = 0;                      // The most recent timestamp received from the time server
