@@ -15,12 +15,7 @@
 #ifdef USE_OTA
 #include <ArduinoOTA.h>
 #endif
-#include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#include <ESP8266HTTPUpdateServer.h>
-#ifdef USE_WEBSOCKETS
-#include <WebSocketsServer.h>
-#endif
 #include <FS.h>
 
 #include <Wire.h>
@@ -29,6 +24,32 @@
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 
 #include "localconfig.h" // not included in git, contains passwords etc.
+
+void saveConfiguration(void);
+void setMotor(int pwm);
+
+struct Programma {
+  int w;              // bij weerstand w
+  unsigned int y;     // y seconden linksom draaien
+  int z;              // met snelheid z
+  unsigned int x;     // x seconden wachten
+  unsigned int y2;    // y2 seconden rechtsom draaien
+  int z2;             // met snelheid z2
+  unsigned int x2;    // x2 seconden wachten
+  int t;              // houdt temperatuur minimaal t graden
+};
+
+// Configuration that we'll store on disk
+struct Config {
+  char ssid[32];
+  char password[32];
+  unsigned int vakantieTijd;
+  unsigned int logInterval;
+  Programma programma[5];
+};
+
+//const char *filename = "/config.txt";  // <- SD library uses 8.3 filenames
+Config config;                         // <- global configuration object
 
 #define ONE_HOUR 3600000UL // one hour in milliseconds
 
@@ -67,14 +88,6 @@ DallasTemperature tempSensors(&oneWire); // Create an instance of the temperatur
 
 MechaQMC5883 qmc;
 
-ESP8266WebServer server(80);       // create a web server on port 80
-#ifdef USE_WEBSOCKETS
-WebSocketsServer webSocket = WebSocketsServer(81);    // create a websocket server on port 81
-#endif
-ESP8266HTTPUpdateServer httpUpdater;
-
-File fsUploadFile;                                    // a File variable to temporarily store the received file
-
 //ESP8266WiFiMulti wifiMulti;    // Create an instance of the ESP8266WiFiMulti class, called 'wifiMulti'
 
 #ifdef USE_OTA
@@ -97,29 +110,6 @@ const char *logHost = LOGHOST;
 // 0b00000001
 // 0b01001001
 
-struct Programma {
-  int w;              // bij weerstand w
-  unsigned int y;     // y seconden linksom draaien
-  int z;              // met snelheid z
-  unsigned int x;     // x seconden wachten
-  unsigned int y2;    // y2 seconden rechtsom draaien
-  int z2;             // met snelheid z2
-  unsigned int x2;    // x2 seconden wachten
-  int t;              // houdt temperatuur minimaal t graden
-};
-
-// Configuration that we'll store on disk
-struct Config {
-  char ssid[32];
-  char password[32];
-  unsigned int vakantieTijd;
-  unsigned int logInterval;
-  Programma programma[5];
-};
-
-//const char *filename = "/config.txt";  // <- SD library uses 8.3 filenames
-Config config;                         // <- global configuration object
-
 enum ProgramMode {DIRECT, PROGRAM, MANUAL, STALL, PAUSE, VAKANTIE};
 const String programModeTxt[6] = {"direct","programma ","manual","stall","pause","vakantie"};
 ProgramMode programMode = PROGRAM;
@@ -134,75 +124,7 @@ const int NTP_PACKET_SIZE = 48;          // NTP time stamp is in the first 48 by
 
 byte packetBuffer[NTP_PACKET_SIZE];      // A buffer to hold incoming and outgoing packets
 #endif
-/*__________________________________________________________SETUP__________________________________________________________*/
 
-void setup() {
-  Serial.begin(115200);        // Start the Serial communication to send messages to the computer
-  delay(10);
-  Serial.println("\r\n");
-  
-  Wire.begin();
-  Wire.setClock(50000L);
-  qmc.init();
-  //qmc.setMode(Mode_Continuous,ODR_200Hz,RNG_2G,OSR_256);
-
-  tempSensors.setWaitForConversion(false); // Don't block the program while the temperature sensor is reading
-  tempSensors.begin();                     // Start the temperature sensor
-
-  if (tempSensors.getDeviceCount() == 0) {
-    Serial.printf("No DS18x20 temperature sensor found on pin %d.\r\n", TEMP_SENSOR_PIN);
-    Serial.flush();
-    //ESP.reset();
-  }
-  
-  pinMode(LED_PIN, OUTPUT);
-  
-  pinMode(RPWM_PIN, OUTPUT);
-  pinMode(LPWM_PIN, OUTPUT);
-  digitalWrite(RPWM_PIN, LOW);
-  digitalWrite(LPWM_PIN, LOW);
-  
-  pinMode(SEAT_SENSOR_PIN, INPUT_PULLUP);
-  pinMode(HEATER_RELAY_PIN, OUTPUT);
-  pinMode(AIRPUMP_RELAY_PIN, OUTPUT);
-  
-  startSPIFFS();               // Start the SPIFFS and list all contents
-  
-  loadConfiguration();
-
-  startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
-  digitalWrite(LED_PIN, 1);
-
-#ifdef USE_OTA
-  startOTA();                  // Start the OTA service
-#endif
-
-#ifdef USE_WEBSOCKETS
-  startWebSocket();            // Start a WebSocket server
-#endif
-
-  startMDNS();                 // Start the mDNS responder
-  
-  httpUpdater.setup(&server);
-  startServer();               // Start a HTTP server with a file read handler and an upload handler
-
-#ifdef USE_NTP
-  startUDP();                  // Start listening for UDP messages to port 123
-
-  if (WiFi.hostByName(ntpServerName, timeServerIP)) { // Get the IP address of the NTP server
-    // timeUNIX = 1;
-  }
-  Serial.print("Time server IP:\t");
-  Serial.println(timeServerIP);
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    sendNTPpacket(timeServerIP);
-    delay(500);
-  }
-#endif
-}
-
-/*__________________________________________________________LOOP__________________________________________________________*/
 #ifdef USE_NTP
 const unsigned long intervalNTP = ONE_HOUR; // Update the time every hour
 unsigned long prevNTP = 0;
@@ -258,6 +180,72 @@ uint32_t timeUNIX = 0;                      // The most recent timestamp receive
 int errCount = 0;
 int errCountTemp = 0;
 
+#include "webserver.h"
+
+/*__________________________________________________________SETUP__________________________________________________________*/
+
+void setup() {
+  Serial.begin(115200);        // Start the Serial communication to send messages to the computer
+  delay(10);
+  Serial.println("\r\n");
+  
+  Wire.begin();
+  Wire.setClock(50000L);
+  qmc.init();
+  //qmc.setMode(Mode_Continuous,ODR_200Hz,RNG_2G,OSR_256);
+
+  tempSensors.setWaitForConversion(false); // Don't block the program while the temperature sensor is reading
+  tempSensors.begin();                     // Start the temperature sensor
+
+  if (tempSensors.getDeviceCount() == 0) {
+    Serial.printf("No DS18x20 temperature sensor found on pin %d.\r\n", TEMP_SENSOR_PIN);
+    Serial.flush();
+    //ESP.reset();
+  }
+  
+  pinMode(LED_PIN, OUTPUT);
+  
+  pinMode(RPWM_PIN, OUTPUT);
+  pinMode(LPWM_PIN, OUTPUT);
+  digitalWrite(RPWM_PIN, LOW);
+  digitalWrite(LPWM_PIN, LOW);
+  
+  pinMode(SEAT_SENSOR_PIN, INPUT_PULLUP);
+  pinMode(HEATER_RELAY_PIN, OUTPUT);
+  pinMode(AIRPUMP_RELAY_PIN, OUTPUT);
+  
+  startSPIFFS();               // Start the SPIFFS and list all contents
+  
+  loadConfiguration();
+
+  startWiFi();                 // Start a Wi-Fi access point, and try to connect to some given access points. Then wait for either an AP or STA connection
+  digitalWrite(LED_PIN, 1);
+
+#ifdef USE_OTA
+  startOTA();                  // Start the OTA service
+#endif
+
+  startMDNS();                 // Start the mDNS responder
+  
+  startWebServer();
+
+#ifdef USE_NTP
+  startUDP();                  // Start listening for UDP messages to port 123
+
+  if (WiFi.hostByName(ntpServerName, timeServerIP)) { // Get the IP address of the NTP server
+    // timeUNIX = 1;
+  }
+  Serial.print("Time server IP:\t");
+  Serial.println(timeServerIP);
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    sendNTPpacket(timeServerIP);
+    delay(500);
+  }
+#endif
+}
+
+/*__________________________________________________________LOOP__________________________________________________________*/
 void loop() {
   unsigned long currentMillis = millis();
 
@@ -658,35 +646,6 @@ void startMDNS() { // Start the mDNS responder
   Serial.println(".local");
 }
 
-void startServer() { // Start a HTTP server with a file read handler and an upload handler
-  server.on("/edit.html",  HTTP_POST, []() {  // If a POST request is sent to the /edit.html address,
-    server.send(200, "text/plain", "");
-  }, handleFileUpload);                       // go to 'handleFileUpload'
-  
-  server.on("/version", []() {
-    server.send(200, "text/plain", "\"" SRC_REVISION "\"");
-  });
-  
-  server.on("/", handleConfig);
-  // server.on("/", HTTP_POST, []() {
-  //   server.send(200, "text/plain", "");
-  // }, handleConfig);
-
-  server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'
-  // and check if the file exists
-
-  server.begin();                             // start the HTTP server
-  Serial.println("HTTP server started.");
-}
-
-#ifdef USE_WEBSOCKETS
-void startWebSocket() { // Start a WebSocket server
-  webSocket.begin();                          // start the websocket server
-  webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
-  Serial.println("WebSocket server started.");
-}
-#endif
-
 // Loads the configuration from a file
 void loadConfiguration() {
   // Open file for reading
@@ -782,158 +741,6 @@ void saveConfiguration() {
   SPIFFS.rename("/config-tmp.json", "/config.json");
 }
 
-/*__________________________________________________________SERVER_HANDLERS__________________________________________________________*/
-
-void handleNotFound() { // if the requested file or page doesn't exist, return a 404 not found error
-  if (!handleFileRead(server.uri())) {        // check if the file exists in the flash memory (SPIFFS), if so, send it
-    server.send(404, "text/plain", "404: File Not Found");
-  }
-}
-
-bool handleFileRead(String path) { // send the right file to the client (if it exists)
-  Serial.println("handleFileRead: " + path);
-  if (path.endsWith("/")) path += "index.html";          // If a folder is requested, send the index file
-  String contentType = getContentType(path);             // Get the MIME type
-  String pathWithGz = path + ".gz";
-  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)) { // If the file exists, either as a compressed archive, or normal
-    if (SPIFFS.exists(pathWithGz))                         // If there's a compressed version available
-      path += ".gz";                                         // Use the compressed verion
-    File file = SPIFFS.open(path, "r");                    // Open the file
-    size_t sent = server.streamFile(file, contentType);    // Send it to the client
-    file.close();                                          // Close the file again
-    Serial.println(String("\tSent file: ") + path);
-    return true;
-  }
-  Serial.println(String("\tFile Not Found: ") + path);   // If the file doesn't exist, return false
-  return false;
-}
-
-void handleFileUpload() { // upload a new file to the SPIFFS
-  HTTPUpload& upload = server.upload();
-  String path;
-  if (upload.status == UPLOAD_FILE_START) {
-    path = upload.filename;
-    if (!path.startsWith("/")) path = "/" + path;
-    if (!path.endsWith(".gz")) {                         // The file server always prefers a compressed version of a file
-      String pathWithGz = path + ".gz";                  // So if an uploaded file is not compressed, the existing compressed
-      if (SPIFFS.exists(pathWithGz))                     // version of that file must be deleted (if it exists)
-        SPIFFS.remove(pathWithGz);
-    }
-    Serial.print("handleFileUpload Name: "); Serial.println(path);
-    fsUploadFile = SPIFFS.open(path, "w");               // Open the file for writing in SPIFFS (create if it doesn't exist)
-    path = String();
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (fsUploadFile)
-      fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
-  } else if (upload.status == UPLOAD_FILE_END) {
-    if (fsUploadFile) {                                   // If the file was successfully created
-      fsUploadFile.close();                               // Close the file again
-      Serial.print("handleFileUpload Size: "); Serial.println(upload.totalSize);
-      server.sendHeader("Location", "/success.html");     // Redirect the client to the success page
-      server.send(303);
-    } else {
-      server.send(500, "text/plain", "500: couldn't create file");
-    }
-  }
-}
-
-void handleConfig() {
-  if (server.args() > 0) {
-    Serial.print("Config update: ");
-    Serial.print(server.args());
-    Serial.println(" args");
-    if (server.arg("ssid") != "") {
-      strlcpy(config.ssid, server.arg("ssid").c_str(), sizeof(config.ssid));
-      Serial.print("ssid: ");
-      Serial.println(config.ssid);
-    }
-    if (server.arg("password") != "") {
-      strlcpy(config.password, server.arg("password").c_str(), sizeof(config.password));
-      Serial.print("password: ");
-      Serial.println(config.password);
-    }
-    if (server.arg("vakantieTijd") != "") {
-      config.vakantieTijd = server.arg("vakantieTijd").toInt();
-    }
-    if (server.arg("logInterval") != "") {
-      config.logInterval = server.arg("logInterval").toInt();
-    }
-    for (int n=0; n<5; n++) {
-      String base = "w" + String(n) + "_";
-      String arg = server.arg(base + "w");
-      if (arg != "") {
-        config.programma[n].w = arg.toInt();
-      }
-      arg = server.arg(base + "y");
-      if (arg != "") {
-        config.programma[n].y = arg.toInt();
-      }
-      arg = server.arg(base + "z");
-      if (arg != "") {
-        config.programma[n].z = arg.toInt();
-      }
-      arg = server.arg(base + "x");
-      if (arg != "") {
-        config.programma[n].x = arg.toInt();
-      }
-      arg = server.arg(base + "y2");
-      if (arg != "") {
-        config.programma[n].y2 = arg.toInt();
-      }
-      arg = server.arg(base + "z2");
-      if (arg != "") {
-        config.programma[n].z2 = arg.toInt();
-      }
-      arg = server.arg(base + "x2");
-      if (arg != "") {
-        config.programma[n].x2 = arg.toInt();
-      }
-      arg = server.arg(base + "t");
-      if (arg != "") {
-        config.programma[n].t = arg.toInt();
-      }
-    }
-    saveConfiguration();
-  }
-  handleNotFound();
-}
-
-#ifdef USE_WEBSOCKETS
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) { // When a WebSocket message is received
-  switch (type) {
-    case WStype_DISCONNECTED:             // if the websocket is disconnected
-      Serial.printf("[%u] Disconnected!\n", num);
-      break;
-    case WStype_CONNECTED: {              // if a new websocket connection is established
-        IPAddress ip = webSocket.remoteIP(num);
-        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-        // send current status
-        if (brilOpen) {
-          webSocket.broadcastTXT("b:open");
-        } else {
-          webSocket.broadcastTXT("b:dicht");
-        }
-      }
-      break;
-    case WStype_TEXT:                     // if new text data is received
-      Serial.printf("[%u] get Text: %s\n", num, payload);
-      if (payload[0] == 'M' && length >= 2) {            // motor control
-        if (payload[1] == 'P') {
-          programMode = PROGRAM;
-          currentProgram = 0;
-          if (programState < 3) {programDirection = -programDirection;}
-          programState = 0;
-        } else if (payload[1] == '-' || (payload[1] >= '0' && payload[1] <= '9')) {
-          int s = String((char*)&payload[1]).toInt();
-          Serial.println(s);
-          programMode = DIRECT;
-          setMotor(s * (1023 / MOTOR_SUPPLY_VOLTAGE));
-        }
-      }
-      break;
-  }
-}
-#endif
 /*__________________________________________________________HELPER_FUNCTIONS__________________________________________________________*/
 
 String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
@@ -944,15 +751,6 @@ String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
   } else if (bytes < (1024 * 1024 * 1024)) {
     return String(bytes / 1024.0 / 1024.0) + "MB";
   }
-}
-
-String getContentType(String filename) { // determine the filetype of a given filename, based on the extension
-  if (filename.endsWith(".html")) return "text/html";
-  else if (filename.endsWith(".css")) return "text/css";
-  else if (filename.endsWith(".js")) return "application/javascript";
-  else if (filename.endsWith(".ico")) return "image/x-icon";
-  else if (filename.endsWith(".gz")) return "application/x-gzip";
-  return "text/plain";
 }
 
 #ifdef USE_NTP
