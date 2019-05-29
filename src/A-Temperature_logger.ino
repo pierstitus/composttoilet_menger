@@ -56,9 +56,11 @@
 #define LED_PIN D4 // D4 has 10k pull-up and builtin LED
 #define RPWM_PIN D5
 #define LPWM_PIN D6
-#define MOTOR_RELAY_PIN D0  // D0 is also used for boot
+#define AIRPUMP_RELAY_PIN D0  // D0 is also used for boot
 #define HEATER_RELAY_PIN D8  // D8 has 10k pull-down, is used for boot
 #define SEAT_SENSOR_PIN D7
+
+#define MOTOR_SUPPLY_VOLTAGE 12
 
 OneWire oneWire(TEMP_SENSOR_PIN);        // Set up a OneWire instance to communicate with OneWire devices
 DallasTemperature tempSensors(&oneWire); // Create an instance of the temperature sensor class
@@ -162,7 +164,7 @@ void setup() {
   
   pinMode(SEAT_SENSOR_PIN, INPUT_PULLUP);
   pinMode(HEATER_RELAY_PIN, OUTPUT);
-  pinMode(MOTOR_RELAY_PIN, OUTPUT);
+  pinMode(AIRPUMP_RELAY_PIN, OUTPUT);
   
   startSPIFFS();               // Start the SPIFFS and list all contents
   
@@ -333,7 +335,6 @@ void loop() {
         programState = 1;
         stallTime = 0;
         programStartTime = currentMillis;
-        digitalWrite(MOTOR_RELAY_PIN, HIGH);
         programSpeed = programDirection * p->z;
         weerstandAvg = 0.0;
         weerstandCount = 0;
@@ -341,7 +342,6 @@ void loop() {
         // Pause
         programState = 2;
         programStartTime = currentMillis;
-        digitalWrite(MOTOR_RELAY_PIN, LOW);
         motorPower = 0;
         programSpeed = 0;
         if (weerstandCount) {weerstandAvg /= weerstandCount;}
@@ -359,13 +359,11 @@ void loop() {
         programState = 3;
         stallTime = 0;
         programStartTime = currentMillis;
-        digitalWrite(MOTOR_RELAY_PIN, HIGH);
         programSpeed = programDirection * -p->z2;
       } else if (programState == 3 && (currentMillis - programStartTime) > 1000 * p->x2) {
         // Pause
         programState = 4;
         programStartTime = currentMillis;
-        digitalWrite(MOTOR_RELAY_PIN, LOW);
         motorPower = 0;
         programSpeed = 0;
         // Go into holiday mode
@@ -389,14 +387,13 @@ void loop() {
             } else if (currentMillis - stallTime > stallTimeTreshold) {
               programMode = STALL;
               motorPower = 0;
-              //digitalWrite(MOTOR_RELAY_PIN, LOW);
             }
           } else {
             stallTime = 0;
           }
         }
       } else if (errCount > 10) { // if sensor doesn't work fallback to voltage based control
-        motorPower = programSpeed * 1023 / 24;
+        motorPower = programSpeed * (1023 / MOTOR_SUPPLY_VOLTAGE);
       }
       setMotor(motorPower);
     }
@@ -433,7 +430,6 @@ void loop() {
       if (brilOpen) {
         programMode = PAUSE;
         motorPower = 0;
-        digitalWrite(MOTOR_RELAY_PIN, LOW);
         setMotor(0);
       } else {
         programMode = PROGRAM;
@@ -931,8 +927,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           int s = String((char*)&payload[1]).toInt();
           Serial.println(s);
           programMode = DIRECT;
-          digitalWrite(MOTOR_RELAY_PIN, HIGH);
-          setMotor(s * 1023 / 24);
+          setMotor(s * (1023 / MOTOR_SUPPLY_VOLTAGE));
         }
       }
       break;
@@ -990,6 +985,8 @@ void sendNTPpacket(IPAddress& address) {
 #endif
 
 void setMotor(int pwm){
+  if (pwm > 1023) pwm = 1023;
+  else if (pwm < -1023) pwm = -1023;
   if (pwm >= 0){
     analogWrite(LPWM_PIN, 0);
     analogWrite(RPWM_PIN, pwm);
