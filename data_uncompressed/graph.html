@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Composttoilet grafiek</title>
+    <meta charset='utf-8'>
     <link href='https://fonts.googleapis.com/css?family=Roboto:300' rel='stylesheet' type='text/css'>
     <link rel="icon" type="image/png" sizes="144x144" href="/favicon-144x144.png">
     <link rel="icon" type="image/png" sizes="96x96" href="/favicon.ico">
@@ -126,8 +126,10 @@ function loadCSV() {
             google.charts.setOnLoadCallback(updateViewport);
         }
     };
-    xmlhttp.open("GET", "log-1.csv", true);
-    xmlhttp.send();
+    // xmlhttp.open("GET", "log-2.csv", true);
+    // xmlhttp.send();
+    // xmlhttp.open("GET", "log-1.csv", true);
+    // xmlhttp.send();
     xmlhttp.open("GET", "log.csv", true);
     xmlhttp.send();
     var loadingdiv = document.getElementById("loading");
@@ -187,8 +189,19 @@ function drawChart() {
                 }
             }
         },
-        vAxis: {
-            title: "Temperature (Celsius)"
+        // vAxis: {
+        //     title: "Temperatuur (Celsius)"
+        // }
+        vAxes: {
+            0: {title: "Temperatuur (Celsius)"},
+            1: {title: "Weerstand", maxValue: 2}
+        },
+        series:{
+            0:{targetAxisIndex:0},
+            1:{targetAxisIndex:1},
+            2:{targetAxisIndex:0},
+            3:{targetAxisIndex:0},
+            4:{targetAxisIndex:0}
         }
     };
 
