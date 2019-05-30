@@ -135,6 +135,9 @@ time_t prevNTP = 0;
 time_t lastNTPResponse = millis();
 #endif
 
+//flag to use from web update to reboot the ESP
+bool shouldReboot = false;
+
 int speed;
 int speedMin, speedMax;
 float motorCurrent = 0;
@@ -300,7 +303,7 @@ void loop() {
       errCount++;
       //Serial.println("rotation sensor error " + String(err));
       if (!(errCount%10)) {
-        webSocket.broadcastTXT("x:rotation sensor error " + String(err) + " (" + String(errCount) + "x)");
+        ws.textAll("x:rotation sensor error " + String(err) + " (" + String(errCount) + "x)");
       }
     } else { 
       errCount = 0;
@@ -417,8 +420,8 @@ void loop() {
     if (programMode == PROGRAM) {
       p = p + " " + String(currentProgram+1) + "-" + String(programState);
     }
-    webSocket.broadcastTXT("r:" + String(rotation,1) + ",s:" + String(speed)
-                           + ",w:" + String(motorCurrent/1000,1) + ",u:" + String((24.0/1023.0) * motorPower,1)
+    ws.textAll("r:" + String(rotation,1) + ",s:" + String(speed)
+                           + ",w:" + String(weerstand,1) + ",u:" + String((MOTOR_SUPPLY_VOLTAGE/1023.0) * motorPower,1)
                            + ",v:" + String(heater) + ",p:" + p);
 #endif
     
@@ -441,9 +444,9 @@ void loop() {
       lastLogTime = 0; // 
 #ifdef USE_WEBSOCKETS
       if (brilOpen) {
-        webSocket.broadcastTXT("b:open");
+        ws.textAll("b:open");
       } else {
-        webSocket.broadcastTXT("b:dicht");
+        ws.textAll("b:dicht");
       }
 #endif
     }
@@ -464,12 +467,12 @@ void loop() {
     if (tmp < -120) {
       //Temperature sensor error
       errCountTemp++;
-      webSocket.broadcastTXT("x:temperature sensor error " + String(tmp,0) + " (" + String(errCountTemp) + "x)");
+      ws.textAll("x:temperature sensor error " + String(tmp,0) + " (" + String(errCountTemp) + "x)");
     } else {
       errCountTemp = 0;
       temp = round(tmp * 10.0) / 10.0; // round temperature to 1 digits
   #ifdef USE_WEBSOCKETS
-      webSocket.broadcastTXT("t:" + String(temp,1));
+      ws.textAll("t:" + String(temp,1));
   #endif
     }
     
@@ -564,13 +567,15 @@ void loop() {
     prevLed = currentMillis;
   }
   
-  server.handleClient();                      // run the server
-#ifdef USE_WEBSOCKETS
-  webSocket.loop();                           // constantly check for websocket events
-#endif
 #ifdef USE_OTA
   ArduinoOTA.handle();                        // listen for OTA events
 #endif
+
+  if (shouldReboot) {
+    Serial.println("Rebooting...");
+    delay(100);
+    ESP.restart();
+  }
 }
 
 /*__________________________________________________________SETUP_FUNCTIONS__________________________________________________________*/
@@ -668,38 +673,38 @@ void loadConfiguration() {
   // Allocate the memory pool on the stack.
   // Don't forget to change the capacity to match your JSON document.
   // Use arduinojson.org/assistant to compute the capacity.
-  StaticJsonBuffer<2048> jsonBuffer;
+  StaticJsonDocument<2048> doc;
 
   // Parse the root object
-  JsonObject &root = jsonBuffer.parseObject(file);
+  DeserializationError error = deserializeJson(doc, file);
 
   // Copy values from the JsonObject to the Config
   //config.port = root["port"] | 2731;
   strlcpy(config.ssid,                   // <- destination
-          root["ssid"] | "",  // <- source
+          doc["ssid"] | "",  // <- source
           sizeof(config.ssid));          // <- destination's capacity
   strlcpy(config.password,                   // <- destination
-          root["password"] | "",  // <- source
+          doc["password"] | "",  // <- source
           sizeof(config.password));          // <- destination's capacity
 
-  config.vakantieTijd = root["vakantieTijd"] | 72;
-  config.logInterval = root["logInterval"] | 10;
+  config.vakantieTijd = doc["vakantieTijd"] | 72;
+  config.logInterval = doc["logInterval"] | 10;
 
   for (int n=0; n<5; n++) {
-    config.programma[n].w = root["programma"][n]["w"] | (n+1)*10;
-    config.programma[n].x = root["programma"][n]["x"] | 120;
-    config.programma[n].y = root["programma"][n]["y"] | 7200;
-    config.programma[n].z = root["programma"][n]["z"] | 5;
-    config.programma[n].x2 = root["programma"][n]["x2"] | 120;
-    config.programma[n].y2 = root["programma"][n]["y2"] | 7200;
-    config.programma[n].z2 = root["programma"][n]["z2"] | 5;
-    config.programma[n].t = root["programma"][n]["t"] | 20;
+    config.programma[n].w = doc["programma"][n]["w"] | (n+1)*10;
+    config.programma[n].x = doc["programma"][n]["x"] | 120;
+    config.programma[n].y = doc["programma"][n]["y"] | 7200;
+    config.programma[n].z = doc["programma"][n]["z"] | 5;
+    config.programma[n].x2 = doc["programma"][n]["x2"] | 120;
+    config.programma[n].y2 = doc["programma"][n]["y2"] | 7200;
+    config.programma[n].z2 = doc["programma"][n]["z2"] | 5;
+    config.programma[n].t = doc["programma"][n]["t"] | 20;
   }
   
   // Close the file (File's destructor doesn't close the file)
   file.close();
   
-  if (!root.success()) {
+  if (error) {
     Serial.println(F("Failed to read file, using default configuration"));
     //saveConfiguration(); // TODO: seems to cause a crash
   }
@@ -710,21 +715,18 @@ void saveConfiguration() {
   // Allocate the memory pool on the stack
   // Don't forget to change the capacity to match your JSON document.
   // Use https://arduinojson.org/assistant/ to compute the capacity.
-  StaticJsonBuffer<2048> jsonBuffer;
-
-  // Parse the root object
-  JsonObject &root = jsonBuffer.createObject();
+  StaticJsonDocument<2048> doc;;
 
   // Set the values
-  root["ssid"] = config.ssid;
-  root["password"] = config.password;
+  doc["ssid"] = config.ssid;
+  doc["password"] = config.password;
   
-  root["vakantieTijd"] = config.vakantieTijd;
-  root["logInterval"] = config.logInterval;
+  doc["vakantieTijd"] = config.vakantieTijd;
+  doc["logInterval"] = config.logInterval;
   
-  JsonArray& programma = root.createNestedArray("programma");
+  JsonArray programma = doc.createNestedArray("programma");
   for (int n=0; n<5; n++) {
-    JsonObject& programma_0 = programma.createNestedObject();
+    JsonObject programma_0 = programma.createNestedObject();
     programma_0["w"] = config.programma[n].w;
     programma_0["y"] = config.programma[n].y;
     programma_0["z"] = config.programma[n].z;
@@ -735,7 +737,7 @@ void saveConfiguration() {
     programma_0["t"] = config.programma[n].t;
   }
 
-  root.printTo(Serial);
+  serializeJson(doc, Serial);
 
   // Open file for writing
   File file = SPIFFS.open("/config-tmp.json", "w");
@@ -744,7 +746,7 @@ void saveConfiguration() {
     return;
   }
   // Serialize JSON to file
-  if (root.printTo(file) == 0) {
+  if (serializeJson(doc, file) == 0) {
     Serial.println(F("Failed to write to file"));
   }
   // Close the file (File's destructor doesn't close the file)

@@ -201,7 +201,7 @@
         document.getElementById("config_form").addEventListener('change', 
           function(e){e.target.style.backgroundColor = "pink"});
         
-        connection = new WebSocket('ws://' + location.hostname + ':81/', ['arduino']);
+        connection = new WebSocket('ws://' + location.hostname + '/ws', ['arduino']);
         connection.onopen = function () {
           console.log('WebSocket connection opened');
           connection.send('Connect ' + new Date());
