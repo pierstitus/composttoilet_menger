@@ -357,7 +357,7 @@ void loop() {
         motorPower = 0;
         programSpeed = 0;
         if (weerstandCount) {weerstandAvg = weerstandSum / weerstandCount;}
-        
+        logNow = true;
         for (int n=0; n<4; n++) {
           if (weerstandAvg < config.programma[n].w) {
             currentProgram = n;
@@ -427,7 +427,7 @@ void loop() {
       p = p + " " + String(currentProgram+1) + "-" + String(programState);
     }
     ws.textAll("r:" + String(rotation,1) + ",s:" + String(speed)
-                           + ",w:" + String(weerstand,1) + ",u:" + String((MOTOR_SUPPLY_VOLTAGE/1023.0) * motorPower,1)
+                           + ",w:" + String(weerstandAvg,1) + ",u:" + String((MOTOR_SUPPLY_VOLTAGE/1023.0) * motorPower,1)
                            + ",v:" + String(heater) + ",l:" + String(airpump) + ",p:" + p);
 #endif
     
@@ -506,13 +506,14 @@ void loop() {
       // turn airpump on
       airpump = 1;
       digitalWrite(AIRPUMP_RELAY_PIN, 1);
-      airpumpStartTime = currentMillis;
+      airpumpStart = airpumpStartTime = currentMillis;
     }
   } else if (config.programma[currentProgram].p0 &&
              currentMillis - airpumpStartTime > 1000 * config.programma[currentProgram].p1) {
     // turn airpump off
     airpump = 0;
     digitalWrite(AIRPUMP_RELAY_PIN, 0);
+    airpumpAvg += currentMillis - heaterStart;
     airpumpStartTime = currentMillis;
   }
 
@@ -537,10 +538,20 @@ void loop() {
       FSInfo fs_info;
       SPIFFS.info(fs_info);
       if (tempLog.size() <= maxLogSize && fs_info.totalBytes - fs_info.usedBytes > minFreeSpace) {
-        tempLog.printf("%ld,%.1f,%.1f,%d,%d,%d\n", actualTime, temp, weerstand, heater, airpump, brilOpen);
+        if (heater) {heaterAvg += currentMillis - heaterStart;}
+        heaterAvg /= currentMillis - lastLogTime;
+        if (airpump) {airpumpAvg += currentMillis - airpumpStart;}
+        airpumpAvg /= currentMillis - lastLogTime;
+
+        tempLog.printf("%ld,%.1f,%.0f,%.1f,%.1f,%d\n", actualTime, temp, weerstandAvg, 10*heaterAvg, 10*airpumpAvg, brilOpen);
+
+        heaterAvg = 0;
+        heaterStart = currentMillis;
+        airpumpAvg = 0;
+        airpumpStart = currentMillis;
       }
       tempLog.close();
-    } else if (WiFi.status() == WL_CONNECTED) {                                    // If we didn't receive an NTP response yet, send another request
+    } else if (WiFi.status() == WL_CONNECTED) {     // If we didn't receive an NTP response yet, send another request
       WiFi.hostByName(ntpServerName, timeServerIP);
       sendNTPpacket(timeServerIP);
       //delay(500);
