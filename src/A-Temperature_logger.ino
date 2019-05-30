@@ -55,7 +55,7 @@ struct Config {
 //const char *filename = "/config.txt";  // <- SD library uses 8.3 filenames
 Config config;                         // <- global configuration object
 
-#define ONE_HOUR 3600000UL // one hour in milliseconds
+#define ONE_HOUR 3600000L // one hour in milliseconds
 
 // Wemos D1 R2 pinout
 // TX 	TXD 	TXD
@@ -86,6 +86,8 @@ Config config;                         // <- global configuration object
 #define SEAT_SENSOR_PIN D7
 
 #define MOTOR_SUPPLY_VOLTAGE 12
+#define MAXPOWER (12*1023/MOTOR_SUPPLY_VOLTAGE)
+#define SPEED_VOLT_FACTOR 0.5f
 
 OneWire oneWire(TEMP_SENSOR_PIN);        // Set up a OneWire instance to communicate with OneWire devices
 DallasTemperature tempSensors(&oneWire); // Create an instance of the temperature sensor class
@@ -152,6 +154,7 @@ int programDirection = 1;
 int motorPower = 0;
 float weerstand;
 float weerstandAvg = 0.0;
+float weerstandSum = 0.0;
 int weerstandCount = 0;
 time_t programStartTime = 0;
 int currentProgram = 0;
@@ -288,12 +291,14 @@ void loop() {
 
   // Measure rotation
   if (currentMillis - prevRotation > intervalRotation) {
+#ifdef USE_CURRENT_SENSOR
     float adc = 0;
     for (int n=0; n<3; n++) {
       adc += analogRead(A0);
     }
     adc /= 3;
     motorCurrent = 0.8*motorCurrent + 0.2*((831 - adc) * 32); //0.9*motorCurrent + 0.1*
+#endif
 
     int32_t x, y, z, mag;//, azimuth;
     float azimuth; //is supporting float too
@@ -308,8 +313,9 @@ void loop() {
     } else { 
       errCount = 0;
       //azimuth = qmc.azimuth(&y,&x);//you can get custom azimuth
+      time_t now = millis();
       mag = (x/512)*(x/512) + (y/512)*(y/512) + (z/512)*(z/512); // max magnitude 49152
-      speed = (float)((int)(1000 * (rotation - azimuth + 360 + 180))%360000 - 180000) / (currentMillis - lastRotation);
+      speed = (float)((int)(1000 * (rotation - azimuth + 360 + 180))%360000 - 180000) / (now - lastRotation);
       if (speed < speedMin) speedMin = speed;
       if (speed > speedMax) speedMax = speed;
       // Serial.print("mag: ");
@@ -321,12 +327,12 @@ void loop() {
       // Serial.println();
       rotation = azimuth;
       weerstand = speed ? (motorPower / speed) : motorPower;
-      lastRotation = currentMillis;
+      lastRotation = now;
     }
     if (programMode == PROGRAM) {
       Programma* p = &config.programma[currentProgram];
       if (programState == 1) {
-        weerstandAvg += weerstand;
+        weerstandSum += weerstand;
         weerstandCount++;
       }
       if (programState == 4 && (currentMillis - programStartTime) > 1000 * p->y2) {
@@ -339,7 +345,7 @@ void loop() {
         stallTime = 0;
         programStartTime = currentMillis;
         programSpeed = programDirection * p->z;
-        weerstandAvg = 0.0;
+        weerstandSum = 0.0;
         weerstandCount = 0;
       } else if (programState == 1 && (currentMillis - programStartTime) > 1000 * p->x) {
         // Pause
@@ -347,7 +353,7 @@ void loop() {
         programStartTime = currentMillis;
         motorPower = 0;
         programSpeed = 0;
-        if (weerstandCount) {weerstandAvg /= weerstandCount;}
+        if (weerstandCount) {weerstandAvg = weerstandSum / weerstandCount;}
         
         // for (int n=0; n<5; n++) {
         //   if (weerstandAvg < config.programma[n].w) {
@@ -377,10 +383,9 @@ void loop() {
       }
       
       // Motor speed feedback loop
-      if (!err) {
+      if (!err && programSpeed) {
         float speedError = programSpeed - speed;
         motorPower = motorPower + speedControlP * speedError;
-        #define MAXPOWER (8*1023/24)
         if (abs(motorPower) > MAXPOWER) {
           motorPower = motorPower > 0 ? MAXPOWER : -MAXPOWER;
           // Detect motor stall
@@ -396,7 +401,7 @@ void loop() {
           }
         }
       } else if (errCount > 10) { // if sensor doesn't work fallback to voltage based control
-        motorPower = programSpeed * (1023 / MOTOR_SUPPLY_VOLTAGE);
+        motorPower = SPEED_VOLT_FACTOR * programSpeed * (1023 / MOTOR_SUPPLY_VOLTAGE);
       }
       setMotor(motorPower);
     }
@@ -427,7 +432,7 @@ void loop() {
     
     
     int brilSensor = !digitalRead(SEAT_SENSOR_PIN);
-    if (brilOpen != brilSensor && lastBrilChange > currentMillis+1000) {
+    if (brilOpen != brilSensor && lastBrilChange+1000 < currentMillis) {
       lastBrilChange = currentMillis;
       brilOpen = brilSensor;
       logNow = true;
@@ -510,7 +515,7 @@ void loop() {
       FSInfo fs_info;
       SPIFFS.info(fs_info);
       if (tempLog.size() <= maxLogSize && fs_info.totalBytes - fs_info.usedBytes > minFreeSpace) {
-        tempLog.printf("%d,%.1f,%.1f,%.0f,%.0f,%d", actualTime, temp, weerstandAvg, 10*heaterAvg, 10*airpumpAvg, brilOpen);
+        tempLog.printf("%ld,%.1f,%.1f,%d,%d,%d\n", actualTime, temp, weerstand, heater, airpump, brilOpen);
       }
       tempLog.close();
     } else if (WiFi.status() == WL_CONNECTED) {                                    // If we didn't receive an NTP response yet, send another request
@@ -764,7 +769,7 @@ String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
     return String(bytes) + "B";
   } else if (bytes < (1024 * 1024)) {
     return String(bytes / 1024.0) + "KB";
-  } else if (bytes < (1024 * 1024 * 1024)) {
+  } else {
     return String(bytes / 1024.0 / 1024.0) + "MB";
   }
 }

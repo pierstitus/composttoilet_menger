@@ -114,7 +114,8 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
             int s = String((char*)&data[1]).toInt();
             Serial.println(s);
             programMode = DIRECT;
-            setMotor(s * (1023 / MOTOR_SUPPLY_VOLTAGE));
+            motorPower = s * (1023 / MOTOR_SUPPLY_VOLTAGE);
+            setMotor(motorPower);
           }
         }
       }
