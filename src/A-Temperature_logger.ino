@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <ESP8266WiFi.h>
@@ -25,17 +26,20 @@
 
 #include "localconfig.h" // not included in git, contains passwords etc.
 
+typedef long time_t;
+typedef int  itime_t;
+
 void saveConfiguration(void);
 void setMotor(int pwm);
 
 struct Programma {
   int w;              // bij weerstand w
-  unsigned int y;     // y seconden linksom draaien
+  itime_t y;          // y seconden linksom draaien
   int z;              // met snelheid z
-  unsigned int x;     // x seconden wachten
-  unsigned int y2;    // y2 seconden rechtsom draaien
+  itime_t x;          // x seconden wachten
+  itime_t y2;         // y2 seconden rechtsom draaien
   int z2;             // met snelheid z2
-  unsigned int x2;    // x2 seconden wachten
+  itime_t x2;         // x2 seconden wachten
   int t;              // houdt temperatuur minimaal t graden
 };
 
@@ -43,8 +47,8 @@ struct Programma {
 struct Config {
   char ssid[32];
   char password[32];
-  unsigned int vakantieTijd;
-  unsigned int logInterval;
+  itime_t vakantieTijd;
+  itime_t logInterval;
   Programma programma[5];
 };
 
@@ -126,18 +130,18 @@ byte packetBuffer[NTP_PACKET_SIZE];      // A buffer to hold incoming and outgoi
 #endif
 
 #ifdef USE_NTP
-const unsigned long intervalNTP = ONE_HOUR; // Update the time every hour
-unsigned long prevNTP = 0;
-unsigned long lastNTPResponse = millis();
+const time_t intervalNTP = ONE_HOUR; // Update the time every hour
+time_t prevNTP = 0;
+time_t lastNTPResponse = millis();
 #endif
 
 int speed;
 int speedMin, speedMax;
 float motorCurrent = 0;
 float rotation;
-const unsigned long intervalRotation = 100;   // rotation measurement interval
-unsigned long prevRotation = 0;
-unsigned long lastRotation = 0;
+const time_t intervalRotation = 100;   // rotation measurement interval
+time_t prevRotation = 0;
+time_t lastRotation = 0;
 
 float speedControlP = 2.0; // 1023 = 24V, 360°/4 = 100°/s
 int programSpeed = 0;
@@ -146,34 +150,34 @@ int motorPower = 0;
 float weerstand;
 float weerstandAvg = 0.0;
 int weerstandCount = 0;
-unsigned long programStartTime = 0;
+time_t programStartTime = 0;
 int currentProgram = 0;
 int programState = 0;
 
-unsigned long stallTime = 0;
+time_t stallTime = 0;
 const int stallTimeTreshold = 10000;
 
 float temp;
-const unsigned long intervalTemp = 1000;   // temperature measurement interval
-unsigned long prevTemp = 0;
+const time_t intervalTemp = 1000;   // temperature measurement interval
+time_t prevTemp = 0;
 bool tmpRequested = false;
-const unsigned long DS_delay = 750;         // Reading the temperature from the DS18x20 can take up to 750ms
+const time_t DS_delay = 750;         // Reading the temperature from the DS18x20 can take up to 750ms
 const float maxTempError = 0.1;
 int heater = 0;
-unsigned long heaterStart = 0;
+time_t heaterStart = 0;
 float heaterAvg = 0.0;
 
 int brilOpen = 0;
-unsigned long lastBrilChange = 0;
+time_t lastBrilChange = 0;
 int programTemperature = 0;
 
-unsigned long lastLogTime = 0;
+time_t lastLogTime = 0;
 int logNow = 0;
 
 int ledPattern = 0b00001111;
 int ledStep = 0;
-unsigned int intervalLed = 250;
-unsigned long prevLed = 0;
+itime_t intervalLed = 250;
+time_t prevLed = 0;
 
 uint32_t timeUNIX = 0;                      // The most recent timestamp received from the time server
 
@@ -247,7 +251,7 @@ void setup() {
 
 /*__________________________________________________________LOOP__________________________________________________________*/
 void loop() {
-  unsigned long currentMillis = millis();
+  time_t currentMillis = millis();
 
 #ifdef USE_NTP
   if (WiFi.status() == WL_CONNECTED) {
@@ -505,7 +509,7 @@ void loop() {
 #ifdef USE_EXT_LOG
     Serial.print("Sending data to ");
     Serial.println(logHost);
-    unsigned long tmp = millis();
+    time_t tmp = millis();
     if (client.connect(logHost, 80)) {
       if (heater) {heaterAvg += currentMillis - heaterStart;}
       heaterAvg /= currentMillis - lastLogTime;
@@ -754,7 +758,7 @@ String formatBytes(size_t bytes) { // convert sizes in bytes to KB and MB
 }
 
 #ifdef USE_NTP
-unsigned long getTime() { // Check if the time server has responded, if so, get the UNIX time, otherwise, return 0
+time_t getTime() { // Check if the time server has responded, if so, get the UNIX time, otherwise, return 0
   if (UDP.parsePacket() == 0) { // If there's no response (yet)
     return 0;
   }
