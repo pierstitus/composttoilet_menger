@@ -90,6 +90,7 @@
 					<span class="label">Weerstand: </span><span class="value" id="weerstand">-</span><span class="unit"></span><br/>
 					<span class="label">Bril: </span><span class="value" id="bril">-</span><span class="unit">&nbsp;</span><br/>
 					<span class="label">Verwarming: </span><span class="value" id="verwarming">-</span><span class="unit">&nbsp;</span><br/>
+					<span class="label">Luchtpomp: </span><span class="value" id="luchtpomp">-</span><span class="unit">&nbsp;</span><br/>
 					<span class="label">Programmastaat: </span><span id="programstate">-</span><br/>
 					<span class="label">Status: </span><span id="statusline">-</span><br/>
 				</div>
@@ -110,7 +111,7 @@
 						 - draai <i>y2</i> seconden rechtsom met snelheid <i>z2</i> - wacht <i>x2</i> seconden. Houdt temperatuur op <i>t</i>&deg;C).
 						<table>
 							<tr>
-								<td><i>w</i></td><td><i>1<br/>rechts</i></td><td><i>2<br/>pauze</i></td><td><i>3<br/>links</i></td><td><i>4<br/>pauze</i></td><td><i>t</i></td>
+								<td><i>w</i></td><td><i>1<br/>rechts</i></td><td><i>2<br/>pauze</i></td><td><i>3<br/>links</i></td><td><i>4<br/>pauze</i></td><td><i>t</i></td><td><i>luchtpomp</i></td>
 							</tr>
 							<tr>
 								<td>1: &lt; <input type="text" class="num" name="w0_w" id="w0_w"/></td>
@@ -121,6 +122,8 @@
                 <input type="text" class="num" name="w0_z2" id="w0_z2"/>m&deg;/s</td>
 								<td><input type="text" class="num" name="w0_y2" id="w0_y2"/>s</td>
 								<td><input type="text" class="num" name="w0_t" id="w0_t"/>&deg;C</td>
+                <td><input type="text" class="num" name="w0_p1" id="w0_p1"/>s aan<br/>
+                <input type="text" class="num" name="w0_p0" id="w0_p0"/>s uit</td>
 							</tr>
 							<tr>
 								<td>2: &lt; <input type="text" class="num" name="w1_w" id="w1_w"/></td>
@@ -131,6 +134,8 @@
                 <input type="text" class="num" name="w1_z2" id="w1_z2"/>m&deg;/s</td>
 								<td><input type="text" class="num" name="w1_y2" id="w1_y2"/>s</td>
 								<td><input type="text" class="num" name="w1_t" id="w1_t"/>&deg;C</td>
+                <td><input type="text" class="num" name="w1_p1" id="w1_p1"/>s aan<br/>
+                <input type="text" class="num" name="w1_p0" id="w1_p0"/>s uit</td>
 							</tr>
 							<tr>
 								<td>3: &lt; <input type="text" class="num" name="w2_w" id="w2_w"/></td>
@@ -141,6 +146,8 @@
                 <input type="text" class="num" name="w2_z2" id="w2_z2"/>m&deg;/s</td>
 								<td><input type="text" class="num" name="w2_y2" id="w2_y2"/>s</td>
 								<td><input type="text" class="num" name="w2_t" id="w2_t"/>&deg;C</td>
+                <td><input type="text" class="num" name="w2_p1" id="w2_p1"/>s aan<br/>
+                <input type="text" class="num" name="w2_p0" id="w2_p0"/>s uit</td>
 							</tr>
 							<tr>
 								<td>4: &lt; <input type="text" class="num" name="w3_w" id="w3_w"/></td>
@@ -151,6 +158,8 @@
                 <input type="text" class="num" name="w3_z2" id="w3_z2"/>m&deg;/s</td>
 								<td><input type="text" class="num" name="w3_y2" id="w3_y2"/>s</td>
 								<td><input type="text" class="num" name="w3_t" id="w3_t"/>&deg;C</td>
+                <td><input type="text" class="num" name="w3_p1" id="w3_p1"/>s aan<br/>
+                <input type="text" class="num" name="w3_p0" id="w3_p0"/>s uit</td>
 							</tr>
 							<tr>
 								<td>5: vakantie<input style="display:none" type="text" class="num" name="w4_w" id="w4_w"/></td>
@@ -161,6 +170,8 @@
                 <input type="text" class="num" name="w4_z2" id="w4_z2"/>m&deg;/s</td>
 								<td><input type="text" class="num" name="w4_y2" id="w4_y2"/>s</td>
 								<td><input type="text" class="num" name="w4_t" id="w4_t"/>&deg;C</td>
+                <td><input type="text" class="num" name="w4_p1" id="w4_p1"/>s aan<br/>
+                <input type="text" class="num" name="w4_p0" id="w4_p0"/>s uit</td>
 							</tr>
 						</table>
 						<h4>Wifi Settings:<h4>
@@ -197,6 +208,8 @@
 					document.getElementById("w" + n + "_z2").value = config.programma[n].z2;
 					document.getElementById("w" + n + "_x2").value = config.programma[n].x2;
 					document.getElementById("w" + n + "_t").value = config.programma[n].t;
+					document.getElementById("w" + n + "_p0").value = config.programma[n].p0;
+					document.getElementById("w" + n + "_p1").value = config.programma[n].p1;
 				}
         document.getElementById("config_form").addEventListener('change', 
           function(e){e.target.style.backgroundColor = "pink"});
@@ -217,6 +230,7 @@
           "w":"weerstand",
           "b":"bril",
           "v":"verwarming",
+          "l":"luchtpomp",
 					"p":"programstate",
           "x":"statusline",
         };

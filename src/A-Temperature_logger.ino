@@ -41,6 +41,8 @@ struct Programma {
   int z2;             // met snelheid z2
   itime_t x2;         // x2 seconden wachten
   int t;              // houdt temperatuur minimaal t graden
+  itime_t p1;         // luchtpomp p1 seconden aan
+  itime_t p0;         // luchtpomp p0 seconden uit
 };
 
 // Configuration that we'll store on disk
@@ -180,6 +182,7 @@ float heaterAvg = 0.0;
 int airpump = 0;
 time_t airpumpStart = 0;
 float airpumpAvg = 0.0;
+time_t airpumpStartTime = -1000000000;
 
 int brilOpen = 0;
 time_t lastBrilChange = 0;
@@ -427,7 +430,7 @@ void loop() {
     }
     ws.textAll("r:" + String(rotation,1) + ",s:" + String(speed)
                            + ",w:" + String(weerstand,1) + ",u:" + String((MOTOR_SUPPLY_VOLTAGE/1023.0) * motorPower,1)
-                           + ",v:" + String(heater) + ",p:" + p);
+                           + ",v:" + String(heater) + ",l:" + String(airpump) + ",p:" + p);
 #endif
     
     
@@ -492,6 +495,19 @@ void loop() {
       digitalWrite(HEATER_RELAY_PIN, 0);
       heaterAvg += currentMillis - heaterStart;
     }
+  }
+
+  if (airpump == 0) {
+    if (currentMillis - airpumpStartTime > 1000 * (config.programma[currentProgram].p1 + config.programma[currentProgram].p0)) {
+      // turn airpump on
+      airpump = 1;
+      digitalWrite(AIRPUMP_RELAY_PIN, 1);
+      airpumpStartTime = currentMillis;
+    }
+  } else if (currentMillis - airpumpStartTime > 1000 * config.programma[currentProgram].p1) {
+    // turn airpump off
+    airpump = 0;
+    digitalWrite(AIRPUMP_RELAY_PIN, 0);
   }
 
   if (logNow || currentMillis - lastLogTime > 1000 * config.logInterval) {
@@ -704,6 +720,8 @@ void loadConfiguration() {
     config.programma[n].y2 = doc["programma"][n]["y2"] | 7200;
     config.programma[n].z2 = doc["programma"][n]["z2"] | 5;
     config.programma[n].t = doc["programma"][n]["t"] | 20;
+    config.programma[n].p1 = doc["programma"][n]["p1"] | 30;
+    config.programma[n].p0 = doc["programma"][n]["p0"] | 3600;
   }
   
   // Close the file (File's destructor doesn't close the file)
@@ -740,6 +758,8 @@ void saveConfiguration() {
     programma_0["z2"] = config.programma[n].z2;
     programma_0["x2"] = config.programma[n].x2;
     programma_0["t"] = config.programma[n].t;
+    programma_0["p1"] = config.programma[n].p1;
+    programma_0["p0"] = config.programma[n].p0;
   }
 
   serializeJson(doc, Serial);

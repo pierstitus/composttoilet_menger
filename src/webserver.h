@@ -77,6 +77,14 @@ void handleConfig(AsyncWebServerRequest *request) {
       if (arg != "") {
         config.programma[n].t = arg.toInt();
       }
+      arg = request->arg(base + "p1");
+      if (arg != "") {
+        config.programma[n].p1 = arg.toInt();
+      }
+      arg = request->arg(base + "p0");
+      if (arg != "") {
+        config.programma[n].p0 = arg.toInt();
+      }
     }
     saveConfiguration();
   }
