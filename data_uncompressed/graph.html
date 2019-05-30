@@ -78,7 +78,7 @@
     </center>
 
 	<script type="text/javascript">
-	var dataArray = [];
+var dataArray = [];
 
 var defaultZoomTime = 24*60*60*1000; // 1 day
 var minZoom = -6; // 22 minutes 30 seconds
@@ -138,9 +138,13 @@ function parseCSV(string) {
     var array = [];
     var lines = string.split("\n");
     for (var i = 0; i < lines.length; i++) {
-        var data = lines[i].split(",", 2);
+        var data = lines[i].split(",", 6);
         data[0] = new Date(parseInt(data[0]) * 1000);
         data[1] = parseFloat(data[1]);
+        data[2] = parseFloat(data[2]);
+        data[3] = parseFloat(data[3]);
+        data[4] = parseFloat(data[4]);
+        data[5] = 10*parseFloat(data[5]);
         array.push(data);
     }
     return array;
@@ -149,7 +153,11 @@ function parseCSV(string) {
 function drawChart() {
     var data = new google.visualization.DataTable();
     data.addColumn('datetime', 'UNIX');
-    data.addColumn('number', 'Temperature');
+    data.addColumn('number', 'Temperatuur');
+    data.addColumn('number', 'Weerstand');
+    data.addColumn('number', 'Verwarming');
+    data.addColumn('number', 'Luchtpomp');
+    data.addColumn('number', 'Bril');
 
     data.addRows(dataArray);
 

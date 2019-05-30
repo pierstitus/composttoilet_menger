@@ -157,15 +157,23 @@ int programState = 0;
 time_t stallTime = 0;
 const int stallTimeTreshold = 10000;
 
+const int maxLogSize = 600*1024;
+const int minFreeSpace = 100*1024;
+
 float temp;
 const time_t intervalTemp = 1000;   // temperature measurement interval
 time_t prevTemp = 0;
 bool tmpRequested = false;
 const time_t DS_delay = 750;         // Reading the temperature from the DS18x20 can take up to 750ms
 const float maxTempError = 0.1;
+
 int heater = 0;
 time_t heaterStart = 0;
 float heaterAvg = 0.0;
+
+int airpump = 0;
+time_t airpumpStart = 0;
+float airpumpAvg = 0.0;
 
 int brilOpen = 0;
 time_t lastBrilChange = 0;
@@ -416,9 +424,10 @@ void loop() {
     
     
     int brilSensor = !digitalRead(SEAT_SENSOR_PIN);
-    if (brilOpen != brilSensor) {
+    if (brilOpen != brilSensor && lastBrilChange > currentMillis+1000) {
       lastBrilChange = currentMillis;
       brilOpen = brilSensor;
+      logNow = true;
       if (brilOpen) {
         programMode = PAUSE;
         motorPower = 0;
@@ -480,24 +489,25 @@ void loop() {
   if (logNow || currentMillis - lastLogTime > 1000 * config.logInterval) {
 #ifdef USE_NTP
     if (timeUNIX != 0) {
-      uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
+      time_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
       // The actual time is the last NTP time plus the time that has elapsed since the last NTP response
       Serial.printf("Appending data to log.csv: %lu,", actualTime);
       Serial.println(temp);
       File tempLog = SPIFFS.open("/log.csv", "a"); // Write the time and the temperature to the csv file
-      if (tempLog.size() > 200*1024) {
+      if (tempLog.size() > maxLogSize) {
         tempLog.close();
-        SPIFFS.remove("/log-1.csv");
-        //SPIFFS.rename("/log-1.csv", "/log-2.csv");
+        SPIFFS.remove("/log-2.csv");
+        SPIFFS.rename("/log-1.csv", "/log-2.csv");
         SPIFFS.rename("/log.csv", "/log-1.csv");
         tempLog = SPIFFS.open("/log.csv", "a");
       }
+      if (tempLog.size() == 0) {
+        tempLog.print("time,temp,weerstand,verwarming,luchtpomp,bril\n");
+      }
       FSInfo fs_info;
       SPIFFS.info(fs_info);
-      if (tempLog.size() <= 200*1024 && fs_info.totalBytes - fs_info.usedBytes > 100*1024) { 
-        tempLog.print(actualTime);
-        tempLog.print(',');
-        tempLog.println(temp, 1);
+      if (tempLog.size() <= maxLogSize && fs_info.totalBytes - fs_info.usedBytes > minFreeSpace) {
+        tempLog.printf("%d,%.1f,%.1f,%.0f,%.0f,%d", actualTime, temp, weerstandAvg, 10*heaterAvg, 10*airpumpAvg, brilOpen);
       }
       tempLog.close();
     } else if (WiFi.status() == WL_CONNECTED) {                                    // If we didn't receive an NTP response yet, send another request
