@@ -334,7 +334,7 @@ void loop() {
     }
     if (programMode == PROGRAM) {
       Programma* p = &config.programma[currentProgram];
-      if (programState == 1) {
+      if (programState == 1 || programState == 3) {
         weerstandSum += weerstand;
         weerstandCount++;
       }
@@ -358,14 +358,12 @@ void loop() {
         programSpeed = 0;
         if (weerstandCount) {weerstandAvg = weerstandSum / weerstandCount;}
         
-        // for (int n=0; n<5; n++) {
-        //   if (weerstandAvg < config.programma[n].w) {
-        //     programma = n;
-        //     motorPower = config.programma[n].x;
-        //     setMotor('R', motorPower);
-        //     break;
-        //   }
-        // }
+        for (int n=0; n<4; n++) {
+          if (weerstandAvg < config.programma[n].w) {
+            currentProgram = n;
+            break;
+          }
+        }
       } else if (programState == 2 && (currentMillis - programStartTime) > 1000 * p->y) {
         // Turn left
         programState = 3;
