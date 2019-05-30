@@ -154,6 +154,13 @@ void startWebServer() { // Start a HTTP server with a file read handler and an u
     request->send(200, "text/html", "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>");
   });
   server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
+    programMode = PAUSE;
+    // turn motor and airpump off
+    motorPower = 0;
+    setMotor(0);
+    airpump = 0;
+    digitalWrite(AIRPUMP_RELAY_PIN, 0);
+
     shouldReboot = !Update.hasError();
     AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot?"OK":"FAIL");
     response->addHeader("Connection", "close");

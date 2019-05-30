@@ -441,6 +441,10 @@ void loop() {
         programMode = PAUSE;
         motorPower = 0;
         setMotor(0);
+        // turn airpump off
+        airpump = 0;
+        digitalWrite(AIRPUMP_RELAY_PIN, 0);
+        airpumpStartTime = currentMillis - 1000 * config.programma[currentProgram].p0;
       } else {
         programMode = PROGRAM;
         currentProgram = 0;
@@ -496,16 +500,20 @@ void loop() {
   }
 
   if (airpump == 0) {
-    if (currentMillis - airpumpStartTime > 1000 * (config.programma[currentProgram].p1 + config.programma[currentProgram].p0)) {
+    if (!brilOpen &&
+        config.programma[currentProgram].p1 &&
+        currentMillis - airpumpStartTime > 1000 * config.programma[currentProgram].p0) {
       // turn airpump on
       airpump = 1;
       digitalWrite(AIRPUMP_RELAY_PIN, 1);
       airpumpStartTime = currentMillis;
     }
-  } else if (currentMillis - airpumpStartTime > 1000 * config.programma[currentProgram].p1) {
+  } else if (config.programma[currentProgram].p0 &&
+             currentMillis - airpumpStartTime > 1000 * config.programma[currentProgram].p1) {
     // turn airpump off
     airpump = 0;
     digitalWrite(AIRPUMP_RELAY_PIN, 0);
+    airpumpStartTime = currentMillis;
   }
 
   if (logNow || currentMillis - lastLogTime > 1000 * config.logInterval) {
