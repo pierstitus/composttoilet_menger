@@ -17,6 +17,7 @@
 #include <ArduinoOTA.h>
 #endif
 #include <ESP8266mDNS.h>
+#include <DNSServer.h>
 #include <FS.h>
 
 #include <Wire.h>
@@ -107,6 +108,10 @@ const char* mdnsName = "composttoilet";        // Domain name for the mDNS respo
 
 const char *ssid = "Composttoilet"; // The name of the Wi-Fi network that will be created
 const char *password = PASSWORD;   // The password required to connect to it, leave blank for an open network
+
+// DNS server
+const byte DNS_PORT = 53;
+DNSServer dnsServer;
 
 #ifdef USE_EXT_LOG
 const char *logHost = LOGHOST;
@@ -609,6 +614,8 @@ void loop() {
   ArduinoOTA.handle();                        // listen for OTA events
 #endif
 
+  dnsServer.processNextRequest();
+
   if (shouldReboot) {
     Serial.println("Rebooting...");
     delay(100);
@@ -621,6 +628,11 @@ void loop() {
 void startWiFi() { // Try to connect to some given access points. Then wait for a connection
   WiFi.softAP(ssid, password);
   Serial.println ("Access Point created");
+
+  /* Setup the DNS server redirecting all the domains to the apIP */
+  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+
   WiFi.begin(config.ssid, config.password); 
   Serial.print("Connecting to ");
   Serial.print(config.ssid);

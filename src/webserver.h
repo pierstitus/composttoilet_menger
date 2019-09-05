@@ -187,6 +187,9 @@ void startWebServer() { // Start a HTTP server with a file read handler and an u
     }
   });
 
+  server.serveStatic("/generate_204", SPIFFS, "/index.html"); //Android captive portal. Maybe not needed. Might be handled by notFound handler.
+  server.serveStatic("/fwlink", SPIFFS, "/index.html"); //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
+
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
   server.begin();                             // start the HTTP server
