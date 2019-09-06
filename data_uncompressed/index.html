@@ -106,6 +106,7 @@
           <form id="config_form" method="post" style="margin: 0px auto 8px auto" >
 						Vakantiemodus na: <input type="text" class="num" name="vakantieTijd" id="vakantieTijd"/> uur.<br/>
 						Log interval: <input type="text" class="num" name="logInterval" id="logInterval"/> s.
+						Motor reactie P: <input type="text" class="num" name="speedControlP" id="speedControlP"/> s.
 						<h4>Programma:</h4>
 						Bij weerstand &lt; <i>w</i>: Draai <i>y</i> seconden linksom met snelheid <i>z</i> - wacht <i>x</i> seconden<br/>
 						 - draai <i>y2</i> seconden rechtsom met snelheid <i>z2</i> - wacht <i>x2</i> seconden. Houdt temperatuur op <i>t</i>&deg;C).
@@ -199,6 +200,7 @@
 				document.getElementById("password").value = config.password;
 				document.getElementById("vakantieTijd").value = config.vakantieTijd;
 				document.getElementById("logInterval").value = config.logInterval;
+				document.getElementById("speedControlP").value = config.speedControlP;
 				for (var n = 0; n<5; n++) {
 					document.getElementById("w" + n + "_w").value = config.programma[n].w;
 					document.getElementById("w" + n + "_y").value = config.programma[n].y;

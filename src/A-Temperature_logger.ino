@@ -52,6 +52,7 @@ struct Config {
   char password[32];
   itime_t vakantieTijd;
   itime_t logInterval;
+  float speedControlP;
   Programma programma[5];
 };
 
@@ -353,14 +354,15 @@ void loop() {
         stallTime = 0;
         programStartTime = currentMillis;
         programSpeed = programDirection * p->z;
+        motorPower = SPEED_VOLT_FACTOR * programSpeed * (1023 / MOTOR_SUPPLY_VOLTAGE);
         weerstandSum = 0.0;
         weerstandCount = 0;
       } else if (programState == 1 && (currentMillis - programStartTime) > 1000 * p->x) {
         // Pause
         programState = 2;
         programStartTime = currentMillis;
-        motorPower = 0;
         programSpeed = 0;
+        motorPower = 0;
         if (weerstandCount) {weerstandAvg = weerstandSum / weerstandCount;}
         logNow = true;
         for (int n=0; n<4; n++) {
@@ -375,12 +377,13 @@ void loop() {
         stallTime = 0;
         programStartTime = currentMillis;
         programSpeed = programDirection * -p->z2;
+        motorPower = SPEED_VOLT_FACTOR * programSpeed * (1023 / MOTOR_SUPPLY_VOLTAGE);
       } else if (programState == 3 && (currentMillis - programStartTime) > 1000 * p->x2) {
         // Pause
         programState = 4;
         programStartTime = currentMillis;
-        motorPower = 0;
         programSpeed = 0;
+        motorPower = 0;
         // Go into holiday mode
         if ((currentMillis - lastBrilChange) > ONE_HOUR * config.vakantieTijd) {
           //programMode = VAKANTIE;
@@ -418,6 +421,7 @@ void loop() {
         programMode = PROGRAM;
         programDirection = -programDirection;
         programSpeed = -programSpeed;
+        motorPower = -motorPower;
       }
     }
     if (programMode == MANUAL) {
@@ -739,6 +743,7 @@ void loadConfiguration() {
 
   config.vakantieTijd = doc["vakantieTijd"] | 72;
   config.logInterval = doc["logInterval"] | 10;
+  config.speedControlP = doc["speedControlP"] | 0.5;
 
   for (int n=0; n<5; n++) {
     config.programma[n].w = doc["programma"][n]["w"] | (n+1)*10;
@@ -775,6 +780,7 @@ void saveConfiguration() {
   
   doc["vakantieTijd"] = config.vakantieTijd;
   doc["logInterval"] = config.logInterval;
+  doc["speedControlP"] = config.speedControlP;
   
   JsonArray programma = doc.createNestedArray("programma");
   for (int n=0; n<5; n++) {
