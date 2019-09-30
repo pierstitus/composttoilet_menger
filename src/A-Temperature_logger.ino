@@ -713,10 +713,13 @@ void startSPIFFS() { // Start the SPIFFS and list all contents
 }
 
 void startMDNS() { // Start the mDNS responder
-  MDNS.begin(mdnsName);                        // start the multicast domain name server
-  Serial.print("mDNS responder started: http://");
-  Serial.print(mdnsName);
-  Serial.println(".local");
+  if (MDNS.begin(mdnsName)) {                        // start the multicast domain name server
+    Serial.print("mDNS responder started: http://");
+    Serial.print(mdnsName);
+    Serial.println(".local");
+  } else {
+    Serial.println("mDNS responder error!");
+  }
 }
 
 // Loads the configuration from a file

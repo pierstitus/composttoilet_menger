@@ -43,6 +43,10 @@ void handleConfig(AsyncWebServerRequest *request) {
     if (arg != "") {
       config.logInterval = arg.toInt();
     }
+    arg = request->arg("speedControlP");
+    if (arg != "") {
+      config.speedControlP = arg.toFloat();
+    }
     for (int n=0; n<5; n++) {
       String base = "w" + String(n) + "_";
       arg = request->arg(base + "w");
@@ -141,7 +145,10 @@ void startWebServer() { // Start a HTTP server with a file read handler and an u
   server.addHandler(new SPIFFSEditor("",""));
 
   server.on("/version", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", "\"" SRC_REVISION "\"");
+    String info = "\"" SRC_REVISION " ";
+    info += WiFi.localIP().toString();
+    info += "\"";
+    request->send(200, "text/plain", info);
   });
   
   server.on("/", HTTP_POST, handleConfig);
@@ -191,6 +198,10 @@ void startWebServer() { // Start a HTTP server with a file read handler and an u
   server.serveStatic("/fwlink", SPIFFS, "/index.html"); //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
 
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+
+  // server.onNotFound([](AsyncWebServerRequest *request){
+  //   request->send(SPIFFS, "/index.html");
+  // });
 
   server.begin();                             // start the HTTP server
   Serial.println("HTTP server started.");
