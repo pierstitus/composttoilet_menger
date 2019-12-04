@@ -420,9 +420,17 @@ void loop() {
       if (motorPower == 0 && abs(speed) > 5.0) {
         programMode = MANUAL;
       } else if (currentMillis - stallTime > 3 * stallTimeTreshold) {
-        if (motorPower) { // final stall
-          motorPower = 0;
-          setMotor(motorPower);
+        if (motorPower) {
+          if (abs(speed) > 1.0) { // it turns! continue in program mode
+            programMode = PROGRAM;
+            programState = 0;
+            weerstandAvg = -5;
+            logNow = true;
+          } else { // final stall
+            motorPower = 0;
+            setMotor(motorPower);
+            weerstandAvg = -3;
+          }
         }
       } else if (currentMillis - stallTime > 2 * stallTimeTreshold) {
         if (motorPower == 0) { // try to turn other direction at max power
@@ -431,11 +439,6 @@ void loop() {
           motorPower = programDirection * 1023;
           setMotor(motorPower);
           weerstandAvg = -2;
-          logNow = true;
-        } else if (abs(speed) > 5.0) { // it turns! continue in program mode
-          programMode = PROGRAM;
-          programState = 0;
-          weerstandAvg = -3;
           logNow = true;
         }
       }
