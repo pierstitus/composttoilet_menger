@@ -47,6 +47,12 @@ void handleConfig(AsyncWebServerRequest *request) {
     if (arg != "") {
       config.speedControlP = arg.toFloat();
     }
+    arg = request->arg("richtingAfwisselen");
+    if (arg != "") {
+      config.richtingAfwisselen = true;
+    } else {
+      config.richtingAfwisselen = false;
+    }
     for (int n=0; n<5; n++) {
       String base = "w" + String(n) + "_";
       arg = request->arg(base + "w");
@@ -142,6 +148,7 @@ void startWebServer() { // Start a HTTP server with a file read handler and an u
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
+  // editor on /edit
   server.addHandler(new SPIFFSEditor("",""));
 
   server.on("/version", HTTP_GET, [](AsyncWebServerRequest *request) {

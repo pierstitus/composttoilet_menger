@@ -54,6 +54,7 @@ struct Config {
   itime_t logInterval;
   float speedControlP;
   Programma programma[5];
+  bool richtingAfwisselen;
 };
 
 //const char *filename = "/config.txt";  // <- SD library uses 8.3 filenames
@@ -353,6 +354,8 @@ void loop() {
         programState = 1;
         stallTime = 0;
         programStartTime = currentMillis;
+        // keep the same direction if configured
+        if (config.richtingAfwisselen == false) programDirection = 1;
         programSpeed = programDirection * p->z;
         motorPower = SPEED_VOLT_FACTOR * programSpeed * (1023 / MOTOR_SUPPLY_VOLTAGE);
         weerstandSum = 0.0;
@@ -766,6 +769,7 @@ void loadConfiguration() {
   config.vakantieTijd = doc["vakantieTijd"] | 72;
   config.logInterval = doc["logInterval"] | 10;
   config.speedControlP = doc["speedControlP"] | 0.5;
+  config.richtingAfwisselen = doc["richtingAfwisselen"];
 
   for (int n=0; n<5; n++) {
     config.programma[n].w = doc["programma"][n]["w"] | (n+1)*10;
@@ -803,6 +807,7 @@ void saveConfiguration() {
   doc["vakantieTijd"] = config.vakantieTijd;
   doc["logInterval"] = config.logInterval;
   doc["speedControlP"] = config.speedControlP;
+  doc["richtingAfwisselen"] = config.richtingAfwisselen;
   
   JsonArray programma = doc.createNestedArray("programma");
   for (int n=0; n<5; n++) {
