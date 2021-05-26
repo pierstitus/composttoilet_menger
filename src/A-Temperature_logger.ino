@@ -659,7 +659,7 @@ void startWiFi() { // Try to connect to some given access points. Then wait for 
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
 
-  WiFi.begin(config.ssid, config.password); 
+  WiFi.begin(config.ssid, config.password); // ssid and password are stored by the ESP, so it should not be necessary to supply the each time
   Serial.print("Connecting to ");
   Serial.print(config.ssid);
   int n = 0;
